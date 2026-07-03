@@ -1,0 +1,12 @@
+{
+  "name": "Daily Manna",
+  "short_name": "Daily Manna",
+  "description": "Daily devotional articles from the SCC Bible reading plan",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f2e9",
+  "theme_color": "#f7f2e9",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

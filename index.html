@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Manna</title>
+<meta name="description" content="Daily devotional articles from the SCC Bible reading plan.">
+<meta name="theme-color" content="#f7f2e9">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Daily Manna">
+<style>
+  :root {
+    --paper: #f7f2e9;
+    --paper-deep: #efe7d8;
+    --ink: #33291e;
+    --ink-soft: #6b5d4b;
+    --accent: #9c4221;
+    --accent-soft: #c05621;
+    --rule: #ddd2bf;
+    --serif: "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 20px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 0 1.35rem 4rem; }
+
+  /* ---------- masthead ---------- */
+  header.masthead { text-align: center; padding: 2.6rem 0 1.4rem; }
+  .brand {
+    font-size: 1.05rem; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+  }
+  .brand-rule {
+    width: 3.2rem; height: 3px; background: var(--accent);
+    margin: 0.85rem auto 0; border-radius: 2px;
+  }
+
+  /* ---------- home ---------- */
+  .home-date { text-align: center; font-size: 1.28rem; font-style: italic; color: var(--ink-soft); margin-top: 0.4rem; }
+  .readings-card {
+    margin: 1.8rem 0 2.2rem; padding: 1.4rem 1.5rem;
+    background: var(--paper-deep); border-radius: 14px;
+  }
+  .readings-card h2 {
+    font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700; margin-bottom: 0.8rem;
+  }
+  .readings-card ul { list-style: none; }
+  .readings-card li {
+    padding: 0.34rem 0; font-size: 1.02rem; color: var(--ink);
+    display: flex; gap: 0.7rem; align-items: baseline;
+  }
+  .readings-card li .tag {
+    flex: none; width: 5.6rem; font-size: 0.78rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); font-weight: 700;
+  }
+  .choice { display: flex; flex-direction: column; gap: 0.9rem; }
+  .btn {
+    display: block; width: 100%; border: none; cursor: pointer;
+    font-family: var(--serif); text-align: center; text-decoration: none;
+    border-radius: 14px; padding: 1.15rem 1rem; font-size: 1.22rem; line-height: 1.35;
+  }
+  .btn-primary { background: var(--accent); color: #fdf9f1; font-weight: 700; }
+  .btn-secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); font-weight: 700; }
+  .btn small { display: block; font-size: 0.86rem; font-weight: 400; opacity: 0.85; margin-top: 0.2rem; }
+  .home-note { text-align: center; color: var(--ink-soft); font-size: 0.92rem; margin-top: 2rem; font-style: italic; }
+
+  /* ---------- reading top bar ---------- */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .topbar-inner {
+    max-width: 40rem; margin: 0 auto; padding: 0.55rem 1.1rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar button {
+    background: none; border: none; font-family: var(--serif); cursor: pointer;
+    color: var(--accent); font-size: 1rem; font-weight: 700; padding: 0.3rem 0.2rem;
+  }
+  .topbar .where { font-size: 0.85rem; color: var(--ink-soft); letter-spacing: 0.12em; text-transform: uppercase; }
+  .progress { height: 3px; background: transparent; }
+  .progress > div { height: 100%; width: 0; background: var(--accent-soft); transition: width 0.15s linear; }
+
+  /* ---------- article ---------- */
+  main.reading { padding-top: 4.2rem; }
+  article { padding: 2.4rem 0 1rem; }
+  .kicker {
+    display: flex; gap: 0.8rem; align-items: baseline; flex-wrap: wrap;
+    font-size: 0.84rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; margin-bottom: 0.9rem;
+  }
+  .kicker .mins { color: var(--ink-soft); letter-spacing: 0.08em; font-weight: 400; }
+  article h1 {
+    font-size: 2.15rem; line-height: 1.16; letter-spacing: -0.01em; margin-bottom: 0.9rem;
+  }
+  .dek {
+    font-size: 1.18rem; line-height: 1.5; font-style: italic; color: var(--ink-soft);
+    margin-bottom: 1.9rem;
+  }
+  .body p { margin-bottom: 1.25rem; }
+  .body p:first-of-type::first-letter {
+    font-size: 3.4em; float: left; line-height: 0.82; padding: 0.08em 0.12em 0 0;
+    color: var(--accent); font-weight: 700;
+  }
+  .body blockquote {
+    margin: 2rem 0.4rem; padding: 0 0 0 1.15rem; border-left: 3px solid var(--accent);
+    font-size: 1.22rem; line-height: 1.5; color: var(--accent); font-weight: 500;
+  }
+  .body strong { color: var(--ink); }
+  .end-mark { text-align: center; color: var(--accent); font-size: 1.6rem; padding: 1.6rem 0 0.4rem; }
+  .divider {
+    display: flex; align-items: center; gap: 1rem; color: var(--ink-soft);
+    font-size: 0.82rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 1.2rem 0 0;
+  }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+  .more-wrap { text-align: center; padding: 2.5rem 0 1rem; }
+  .finish { text-align: center; padding: 3rem 0 2rem; color: var(--ink-soft); font-style: italic; }
+  .finish .verse { font-size: 1.05rem; margin-bottom: 1.6rem; }
+
+  .missing { text-align: center; padding: 3rem 1rem; color: var(--ink-soft); }
+  .missing h2 { font-size: 1.5rem; color: var(--ink); margin-bottom: 1rem; }
+  .missing p { margin-bottom: 0.8rem; }
+
+  @media (min-width: 700px) {
+    body { font-size: 21px; }
+    article h1 { font-size: 2.5rem; }
+  }
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<script>
+(function () {
+  const app = document.getElementById("app");
+  const today = new Date();
+  const iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  const prettyDate = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+
+  let data = null;
+
+  const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
+
+  function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  function readingsList(readings) {
+    return '<div class="readings-card"><h2>Today’s Readings</h2><ul>' +
+      READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + esc(readings[k]) + "</span></li>" : "").join("") +
+      "</ul></div>";
+  }
+
+  function renderHome() {
+    window.scrollTo(0, 0);
+    const total = data.articles.reduce((s, a) => s + a.minutes, 0);
+    app.innerHTML =
+      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
+      '<div class="home-date">' + prettyDate + "</div></header>" +
+      readingsList(data.readings) +
+      '<div class="choice">' +
+      '<button class="btn btn-primary" id="read-all">Read Today’s 4 Articles<small>' + total + " minute read</small></button>" +
+      '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + data.articles[0].minutes + " minutes</small></button>" +
+      "</div>" +
+      '<p class="home-note">Fresh articles from today’s passages, every morning.</p>';
+    document.getElementById("read-all").onclick = () => renderReading(false);
+    document.getElementById("read-best").onclick = () => renderReading(true);
+  }
+
+  function articleHtml(a, idx, count) {
+    return (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
+      "<article>" +
+      '<div class="kicker"><span>' + esc(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
+      "<h1>" + esc(a.title) + "</h1>" +
+      '<p class="dek">' + esc(a.dek) + "</p>" +
+      '<div class="body">' + a.body + "</div>" +
+      '<div class="end-mark">❦</div>' +
+      "</article>";
+  }
+
+  function renderReading(bestOnly) {
+    const arts = data.articles.slice().sort((x, y) => x.rank - y.rank);
+    const shown = bestOnly ? [arts[0]] : arts;
+    app.innerHTML =
+      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Home</button>' +
+      '<span class="where">' + prettyDate.replace(/, \d{4}$/, "") + "</span></div>" +
+      '<div class="progress"><div id="pbar"></div></div></div>' +
+      '<main class="reading">' +
+      shown.map((a, i) => articleHtml(a, i, shown.length)).join("") +
+      (bestOnly && arts.length > 1
+        ? '<div class="more-wrap"><button class="btn btn-secondary" id="more">Keep reading today’s other ' + (arts.length - 1) + " articles</button></div>"
+        : "") +
+      '<div class="finish"><p class="verse">“Your word is a lamp for my feet, a light on my path.” — Psalm 119:105</p>' +
+      '<button class="btn btn-secondary" id="done">Back to Home</button></div>' +
+      "</main>";
+    window.scrollTo(0, 0);
+    document.getElementById("back").onclick = renderHome;
+    document.getElementById("done").onclick = renderHome;
+    const more = document.getElementById("more");
+    if (more) more.onclick = () => renderReading(false);
+    const pbar = document.getElementById("pbar");
+    const update = () => {
+      if (!pbar.isConnected) { window.removeEventListener("scroll", update); return; }
+      const h = document.documentElement;
+      const max = h.scrollHeight - h.clientHeight;
+      pbar.style.width = (max > 0 ? ((window.scrollY || h.scrollTop) / max) * 100 : 0) + "%";
+    };
+    window.addEventListener("scroll", update, { passive: true });
+    update();
+  }
+
+  function renderMissing(planReadings) {
+    app.innerHTML =
+      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
+      '<div class="home-date">' + prettyDate + "</div></header>" +
+      (planReadings ? readingsList(planReadings) : "") +
+      '<div class="missing"><h2>Today’s articles aren’t ready yet</h2>' +
+      "<p>Open Claude Code and say <em>“today’s devotions”</em> to generate them.</p>" +
+      "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p></div>";
+  }
+
+  fetch("content/" + iso + ".json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error("no content"); return r.json(); })
+    .then(d => { data = d; renderHome(); })
+    .catch(() =>
+      fetch("plan.json", { cache: "no-store" })
+        .then(r => r.json())
+        .then(plan => renderMissing(plan[iso.slice(5)]))
+        .catch(() => renderMissing(null))
+    );
+})();
+</script>
+</body>
+</html>
