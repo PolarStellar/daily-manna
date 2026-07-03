@@ -74,6 +74,12 @@
   .btn-secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); font-weight: 700; }
   .btn small { display: block; font-size: 0.86rem; font-weight: 400; opacity: 0.85; margin-top: 0.2rem; }
   .home-note { text-align: center; color: var(--ink-soft); font-size: 0.92rem; margin-top: 2rem; font-style: italic; }
+  .archive-link {
+    display: block; width: 100%; margin-top: 1.4rem; background: none; border: none;
+    font-family: var(--serif); cursor: pointer; text-align: center;
+    color: var(--accent); font-size: 1.02rem; font-weight: 700; padding: 0.6rem;
+    letter-spacing: 0.02em;
+  }
 
   /* ---------- reading top bar ---------- */
   .topbar {
@@ -96,16 +102,26 @@
 
   /* ---------- article ---------- */
   main.reading { padding-top: 4.2rem; }
-  article { padding: 2.4rem 0 1rem; }
+  .art { padding: 2.4rem 0 1rem; }
+  .art-head {
+    display: block; width: 100%; text-align: left; background: none; border: none;
+    font-family: var(--serif); color: var(--ink); cursor: pointer; padding: 0;
+  }
   .kicker {
     display: flex; gap: 0.8rem; align-items: baseline; flex-wrap: wrap;
     font-size: 0.84rem; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--accent); font-weight: 700; margin-bottom: 0.9rem;
   }
   .kicker .mins { color: var(--ink-soft); letter-spacing: 0.08em; font-weight: 400; }
-  article h1 {
+  .art h1 {
     font-size: 2.15rem; line-height: 1.16; letter-spacing: -0.01em; margin-bottom: 0.9rem;
   }
+  .read-badge {
+    display: none; align-items: center; gap: 0.45rem;
+    font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 700; margin-bottom: 0.4rem;
+  }
+  .read-badge .chev { color: var(--accent); }
   .dek {
     font-size: 1.18rem; line-height: 1.5; font-style: italic; color: var(--ink-soft);
     margin-bottom: 1.9rem;
@@ -120,7 +136,18 @@
     font-size: 1.22rem; line-height: 1.5; color: var(--accent); font-weight: 500;
   }
   .body strong { color: var(--ink); }
-  .end-mark { text-align: center; color: var(--accent); font-size: 1.6rem; padding: 1.6rem 0 0.4rem; }
+  .end-mark { text-align: center; color: var(--accent); font-size: 1.6rem; padding: 1.6rem 0 0.2rem; }
+  .collapse-btn {
+    display: block; margin: 0.2rem auto 0; background: none; border: none;
+    font-family: var(--serif); cursor: pointer; color: var(--ink-soft);
+    font-size: 0.86rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+    padding: 0.5rem 1rem;
+  }
+  /* collapsed state: hide the reading body + drop cap, reveal the "read" badge */
+  .art.collapsed .art-body { display: none; }
+  .art.collapsed .art-head h1 { margin-bottom: 0.2rem; opacity: 0.72; }
+  .art.collapsed .read-badge { display: flex; }
+
   .divider {
     display: flex; align-items: center; gap: 1rem; color: var(--ink-soft);
     font-size: 0.82rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 1.2rem 0 0;
@@ -130,6 +157,31 @@
   .more-wrap { text-align: center; padding: 2.5rem 0 1rem; }
   .finish { text-align: center; padding: 3rem 0 2rem; color: var(--ink-soft); font-style: italic; }
   .finish .verse { font-size: 1.05rem; margin-bottom: 1.6rem; }
+  .allread {
+    margin: 0.6rem 0 1.6rem; padding: 1rem 1.2rem; background: var(--paper-deep);
+    border-radius: 12px; text-align: center; color: var(--ink-soft); font-size: 0.98rem;
+  }
+  .allread strong { color: var(--ink); font-style: normal; }
+
+  /* ---------- archive ---------- */
+  .archive-head { text-align: center; padding: 0.4rem 0 1.4rem; }
+  .archive-head h2 { font-size: 1.7rem; color: var(--ink); }
+  .day-list { list-style: none; margin-top: 0.5rem; }
+  .day-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    width: 100%; background: var(--paper-deep); border: none; cursor: pointer;
+    font-family: var(--serif); text-align: left; color: var(--ink);
+    border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: 0.7rem;
+  }
+  .day-row .d-date { display: block; font-size: 1.14rem; font-weight: 700; }
+  .day-row .d-meta { display: block; font-size: 0.88rem; color: var(--ink-soft); margin-top: 0.15rem; }
+  .day-row .d-right { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+  .day-row .d-count {
+    font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+  }
+  .day-row .d-progress { font-size: 0.8rem; color: var(--ink-soft); }
+  .day-row .chev { color: var(--accent); font-size: 1.2rem; }
 
   .missing { text-align: center; padding: 3rem 1rem; color: var(--ink-soft); }
   .missing h2 { font-size: 1.5rem; color: var(--ink); margin-bottom: 1rem; }
@@ -137,7 +189,7 @@
 
   @media (min-width: 700px) {
     body { font-size: 21px; }
-    article h1 { font-size: 2.5rem; }
+    .art h1 { font-size: 2.5rem; }
   }
 </style>
 </head>
@@ -147,74 +199,172 @@
 (function () {
   const app = document.getElementById("app");
   const today = new Date();
-  const iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-  const prettyDate = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-
-  let data = null;
+  const todayIso = ymd(today);
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
+  let todayData = null;      // today's articles (or null if not generated)
 
-  function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  // ---------- helpers ----------
+  function ymd(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function prettyFromIso(isoStr, withYear) {
+    const [y, m, d] = isoStr.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US",
+      { weekday: "long", month: "long", day: "numeric", year: withYear ? "numeric" : undefined });
+  }
+  function esc(s) { const el = document.createElement("div"); el.textContent = s; return el.innerHTML; }
 
-  function readingsList(readings) {
-    return '<div class="readings-card"><h2>Today’s Readings</h2><ul>' +
+  // ---------- read-state (per device, localStorage) ----------
+  function getRead() {
+    try { return JSON.parse(localStorage.getItem("dm-read") || "{}"); } catch (e) { return {}; }
+  }
+  function isRead(isoStr, rank) { return !!getRead()[isoStr + "#" + rank]; }
+  function markRead(isoStr, rank) {
+    const r = getRead(); const k = isoStr + "#" + rank;
+    if (!r[k]) { r[k] = true; try { localStorage.setItem("dm-read", JSON.stringify(r)); } catch (e) {} }
+  }
+  function readCount(isoStr, articles) {
+    return articles.reduce((n, a) => n + (isRead(isoStr, a.rank) ? 1 : 0), 0);
+  }
+
+  function readingsList(readings, heading) {
+    return '<div class="readings-card"><h2>' + heading + '</h2><ul>' +
       READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + esc(readings[k]) + "</span></li>" : "").join("") +
       "</ul></div>";
   }
 
+  // ---------- home ----------
   function renderHome() {
     window.scrollTo(0, 0);
-    const total = data.articles.reduce((s, a) => s + a.minutes, 0);
+    if (!todayData) return; // renderMissing already showed
+    const total = todayData.articles.reduce((s, a) => s + a.minutes, 0);
+    const done = readCount(todayIso, todayData.articles);
+    const left = todayData.articles.length - done;
+    const primaryLabel = done === 0
+      ? "Read Today’s " + todayData.articles.length + " Articles"
+      : (left > 0 ? "Continue — " + left + " left to read" : "Reread Today’s Articles");
+    const primarySmall = done === 0 ? total + " minute read" : done + " of " + todayData.articles.length + " read";
     app.innerHTML =
       '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
-      '<div class="home-date">' + prettyDate + "</div></header>" +
-      readingsList(data.readings) +
+      '<div class="home-date">' + prettyFromIso(todayIso, true) + "</div></header>" +
+      readingsList(todayData.readings, "Today’s Readings") +
       '<div class="choice">' +
-      '<button class="btn btn-primary" id="read-all">Read Today’s 4 Articles<small>' + total + " minute read</small></button>" +
-      '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + data.articles[0].minutes + " minutes</small></button>" +
+      '<button class="btn btn-primary" id="read-all">' + primaryLabel + "<small>" + primarySmall + "</small></button>" +
+      '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + todayData.articles[0].minutes + " minutes</small></button>" +
       "</div>" +
+      '<button class="archive-link" id="archive">Past Days ›</button>' +
       '<p class="home-note">Fresh articles from today’s passages, every morning.</p>';
-    document.getElementById("read-all").onclick = () => renderReading(false);
-    document.getElementById("read-best").onclick = () => renderReading(true);
+    document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
+    document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
+    document.getElementById("archive").onclick = renderArchive;
   }
 
-  function articleHtml(a, idx, count) {
-    return (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
-      "<article>" +
+  // ---------- archive ----------
+  function renderArchive() {
+    window.scrollTo(0, 0);
+    app.innerHTML =
+      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div></header>' +
+      '<div class="archive-head"><h2>Past Days</h2></div>' +
+      '<div id="daybox"><p class="home-note">Loading…</p></div>' +
+      '<button class="archive-link" id="home">‹ Back to Today</button>';
+    document.getElementById("home").onclick = renderHome;
+    fetch("content/index.json", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : { days: [] })
+      .then(idx => {
+        const days = (idx.days || []).slice().sort().reverse();
+        const box = document.getElementById("daybox");
+        if (!days.length) { box.innerHTML = '<p class="home-note">No past days yet. They’ll appear here as you generate them.</p>'; return; }
+        box.innerHTML = '<ul class="day-list">' + days.map(dayRow).join("") + "</ul>";
+        box.querySelectorAll(".day-row").forEach(el => {
+          el.onclick = () => loadDay(el.dataset.iso).then(d => openDay(el.dataset.iso, d, { bestOnly: false, onBack: renderArchive }));
+        });
+      })
+      .catch(() => { document.getElementById("daybox").innerHTML = '<p class="home-note">Couldn’t load past days.</p>'; });
+  }
+
+  function dayRow(isoStr) {
+    return '<li><button class="day-row" data-iso="' + isoStr + '">' +
+      '<span><span class="d-date">' + prettyFromIso(isoStr, false) + "</span>" +
+      '<span class="d-meta">' + isoStr.slice(0, 4) + "</span></span>" +
+      '<span class="d-right"><span class="chev">›</span></span></button></li>';
+  }
+
+  const dayCache = {};
+  function loadDay(isoStr) {
+    if (dayCache[isoStr]) return Promise.resolve(dayCache[isoStr]);
+    return fetch("content/" + isoStr + ".json", { cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error("no content"); return r.json(); })
+      .then(d => { dayCache[isoStr] = d; return d; });
+  }
+
+  // ---------- reading ----------
+  function articleHtml(a, idx, count, isoStr, collapsed) {
+    return '<section class="art' + (collapsed ? " collapsed" : "") + '" data-rank="' + a.rank + '">' +
+      (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
+      '<button class="art-head">' +
       '<div class="kicker"><span>' + esc(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
       "<h1>" + esc(a.title) + "</h1>" +
+      '<div class="read-badge"><span class="chev">✓</span> Read · tap to reopen</div>' +
+      "</button>" +
+      '<div class="art-body">' +
       '<p class="dek">' + esc(a.dek) + "</p>" +
       '<div class="body">' + a.body + "</div>" +
       '<div class="end-mark">❦</div>' +
-      "</article>";
+      '<button class="collapse-btn">Collapse ▲</button>' +
+      "</div></section>";
   }
 
-  function renderReading(bestOnly) {
+  function openDay(isoStr, data, opts) {
     const arts = data.articles.slice().sort((x, y) => x.rank - y.rank);
-    const shown = bestOnly ? [arts[0]] : arts;
+    const shown = opts.bestOnly ? [arts[0]] : arts;
+    const unreadCount = shown.filter(a => !isRead(isoStr, a.rank)).length;
     app.innerHTML =
-      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Home</button>' +
-      '<span class="where">' + prettyDate.replace(/, \d{4}$/, "") + "</span></div>" +
+      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Back</button>' +
+      '<span class="where">' + prettyFromIso(isoStr, false) + "</span></div>" +
       '<div class="progress"><div id="pbar"></div></div></div>' +
       '<main class="reading">' +
-      shown.map((a, i) => articleHtml(a, i, shown.length)).join("") +
-      (bestOnly && arts.length > 1
-        ? '<div class="more-wrap"><button class="btn btn-secondary" id="more">Keep reading today’s other ' + (arts.length - 1) + " articles</button></div>"
+      (!opts.bestOnly && unreadCount === 0 && shown.length > 1
+        ? '<div class="allread"><strong>You’ve read all of these.</strong> Tap any title to read it again.</div>' : "") +
+      shown.map((a, i) => articleHtml(a, i, shown.length, isoStr, isRead(isoStr, a.rank))).join("") +
+      (opts.bestOnly && arts.length > 1
+        ? '<div class="more-wrap"><button class="btn btn-secondary" id="more">Keep reading the other ' + (arts.length - 1) + " articles</button></div>"
         : "") +
       '<div class="finish"><p class="verse">“Your word is a lamp for my feet, a light on my path.” — Psalm 119:105</p>' +
-      '<button class="btn btn-secondary" id="done">Back to Home</button></div>' +
+      '<button class="btn btn-secondary" id="done">Done</button></div>' +
       "</main>";
     window.scrollTo(0, 0);
-    document.getElementById("back").onclick = renderHome;
-    document.getElementById("done").onclick = renderHome;
+
+    document.getElementById("back").onclick = opts.onBack;
+    document.getElementById("done").onclick = opts.onBack;
     const more = document.getElementById("more");
-    if (more) more.onclick = () => renderReading(false);
+    if (more) more.onclick = () => openDay(isoStr, data, { bestOnly: false, onBack: opts.onBack });
+
+    // expand / collapse toggles
+    app.querySelectorAll(".art").forEach(sec => {
+      sec.querySelector(".art-head").onclick = () => { if (sec.classList.contains("collapsed")) sec.classList.remove("collapsed"); };
+      sec.querySelector(".collapse-btn").onclick = () => {
+        sec.classList.add("collapsed");
+        sec.scrollIntoView({ block: "start" });
+        window.scrollBy(0, -60);
+      };
+    });
+
+    // progress bar + mark-as-read: an article counts as read once its end
+    // mark scrolls up past the lower part of the viewport. Driven off scroll
+    // position (getBoundingClientRect) so it works without IntersectionObserver.
     const pbar = document.getElementById("pbar");
+    const ends = [...app.querySelectorAll(".art .end-mark")];
     const update = () => {
       if (!pbar.isConnected) { window.removeEventListener("scroll", update); return; }
       const h = document.documentElement;
       const max = h.scrollHeight - h.clientHeight;
       pbar.style.width = (max > 0 ? ((window.scrollY || h.scrollTop) / max) * 100 : 0) + "%";
+      const trigger = window.innerHeight * 0.85;
+      ends.forEach(el => {
+        if (el.offsetParent === null) return; // inside a collapsed article
+        if (el.getBoundingClientRect().top < trigger) markRead(isoStr, Number(el.closest(".art").dataset.rank));
+      });
     };
     window.addEventListener("scroll", update, { passive: true });
     update();
@@ -223,20 +373,22 @@
   function renderMissing(planReadings) {
     app.innerHTML =
       '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
-      '<div class="home-date">' + prettyDate + "</div></header>" +
-      (planReadings ? readingsList(planReadings) : "") +
+      '<div class="home-date">' + prettyFromIso(todayIso, true) + "</div></header>" +
+      (planReadings ? readingsList(planReadings, "Today’s Readings") : "") +
+      '<button class="archive-link" id="archive">Past Days ›</button>' +
       '<div class="missing"><h2>Today’s articles aren’t ready yet</h2>' +
       "<p>Open Claude Code and say <em>“today’s devotions”</em> to generate them.</p>" +
       "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p></div>";
+    document.getElementById("archive").onclick = renderArchive;
   }
 
-  fetch("content/" + iso + ".json", { cache: "no-store" })
-    .then(r => { if (!r.ok) throw new Error("no content"); return r.json(); })
-    .then(d => { data = d; renderHome(); })
+  // ---------- boot ----------
+  loadDay(todayIso)
+    .then(d => { todayData = d; renderHome(); })
     .catch(() =>
       fetch("plan.json", { cache: "no-store" })
         .then(r => r.json())
-        .then(plan => renderMissing(plan[iso.slice(5)]))
+        .then(plan => renderMissing(plan[todayIso.slice(5)]))
         .catch(() => renderMissing(null))
     );
 })();
