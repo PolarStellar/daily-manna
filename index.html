@@ -240,7 +240,10 @@
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
-  let apiOk = false;         // true when the local generator server is reachable
+  let apiOk = false;         // true when the generator server is reachable
+  let apiBase = "";          // "" = same-origin (on the Mac); tailnet URL when remote
+  const TAILNET = "https://kriss-macbook-pro.taila0e65f.ts.net:8790"; // Mac over Tailscale
+  function api(path) { return apiBase ? apiBase + "/" + path : path; }
   let remoteLoved = new Set(); // loved keys synced from the Mac via loved.json
   let plan = {};             // MM-DD -> readings, for any date's passages
   let generatedSet = new Set(); // ISO dates that have articles
@@ -282,19 +285,24 @@
     try { localStorage.setItem("dm-loved", JSON.stringify(l)); } catch (e) {}
     if (now) remoteLoved.add(key); else remoteLoved.delete(key);
     if (apiOk) {
-      fetch("api/love", { method: "POST", headers: { "Content-Type": "application/json" },
+      fetch(api("api/love"), { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, loved: now }) }).catch(() => {});
     }
     return now;
   }
 
-  // ---------- local generator server detection ----------
-  function ping() {
+  // ---------- generator server detection ----------
+  // Try same-origin first (running on the Mac); if that fails, try the Mac over
+  // Tailscale (phone/anywhere). Returns {base, info} or null.
+  function pingUrl(base) {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 2500);
-    return fetch("api/ping", { signal: ctrl.signal, cache: "no-store" })
-      .then(r => r.ok ? r.json() : null).catch(() => null)
-      .finally(() => clearTimeout(t));
+    const t = setTimeout(() => ctrl.abort(), 2800);
+    return fetch((base ? base + "/" : "") + "api/ping", { signal: ctrl.signal, cache: "no-store" })
+      .then(r => r.ok ? r.json() : null).catch(() => null).finally(() => clearTimeout(t))
+      .then(info => info ? { base, info } : null);
+  }
+  function ping() {
+    return pingUrl("").then(res => res || pingUrl(TAILNET));
   }
   function loadRemoteLoved() {
     return fetch("loved.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null)
@@ -319,7 +327,7 @@
     btn.textContent = "Writing the articles…";
     const fail = (msg) => { btn.disabled = false; btn.textContent = "Try again"; noteEl.textContent = msg; };
     const poll = () => {
-      fetch("api/gen-status", { cache: "no-store" }).then(r => r.json()).then(s => {
+      fetch(api("api/gen-status"), { cache: "no-store" }).then(r => r.json()).then(s => {
         if (s.running) { noteEl.textContent = (s.phase || "Working…") + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
         if (s.done && s.result) {
           if (s.result.ok && s.result.articles) {
@@ -332,7 +340,7 @@
         } else { setTimeout(poll, 3000); }
       }).catch(e => setTimeout(poll, 4000));
     };
-    fetch("api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: iso, force: !!force }) })
+    fetch(api("api/generate"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: iso, force: !!force }) })
       .then(r => r.json())
       .then(res => { if (res.ok) { noteEl.textContent = "Starting…"; poll(); } else fail("Couldn’t start: " + (res.error || "unknown")); })
       .catch(e => fail("Couldn’t reach the generator: " + e));
@@ -575,7 +583,7 @@
 
   // ---------- boot ----------
   Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated()])
-    .then(([p]) => { apiOk = !!(p && p.canGenerate); })
+    .then(([p]) => { if (p) { apiBase = p.base; apiOk = !!(p.info && p.info.canGenerate); } })
     .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
     .then(() => goToday());
 })();

@@ -68,6 +68,19 @@ personal collection until they reach the Mac.
 | `studio/serve.py` | Local generator + control server |
 | `studio/ARTICLE_PROMPT.md` | The single-article writing spec |
 
+## Generating from your phone (Tailscale)
+
+The Generate button works on your phone too, over your private Tailscale network:
+1. On the **Mac**: Studio server running (the launcher) **and** Tailscale on.
+2. On the **phone**: Tailscale on. Open the live site — the app finds your Mac at
+   `https://kriss-macbook-pro.taila0e65f.ts.net:8790` and the Generate button
+   appears. Hearts you tap on the phone now reach the Mac too (they teach the writer).
+
+The Mac side is already set up: `tailscale serve --bg --https=8790 localhost:8790`
+proxies the tailnet to the local server (turn off with
+`tailscale serve --https=8790 off`). If your Mac is off or Tailscale is down, the
+phone simply falls back to read-only — reading always works.
+
 ## Keeping it running
 
 Double-click **`Start Daily Manna.command`** and leave the window open — that's

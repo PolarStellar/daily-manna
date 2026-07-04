@@ -34,6 +34,14 @@ HOST, PORT = "127.0.0.1", 8790
 CLAUDE_MODEL = "sonnet"          # excellent writer, ~5x cheaper than Opus; change if desired
 GEMINI_MODEL = "gemini-2.5-pro"
 
+# Origins allowed to call the write API cross-origin (the public reader, and the
+# local app). Anything else is refused — the server stays reachable only from
+# the Mac (localhost) and the private tailnet.
+ALLOWED_ORIGINS = {
+    "https://polarstellar.github.io",
+    "http://localhost:8790", "http://127.0.0.1:8790",
+}
+
 # One writer per reading, run in parallel. rank 1 = the day's lead.
 SLOTS = [
     {"rank": 1, "reading": "nt", "label": "New Testament", "texture": "a vivid narrative drama"},
@@ -324,6 +332,12 @@ def git_publish(iso):
 
 # ----------------------------- HTTP -----------------------------
 class Handler(BaseHTTPRequestHandler):
+    def _cors(self):
+        origin = self.headers.get("Origin")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
     def _send(self, code, body, ctype="application/json"):
         b = body.encode() if isinstance(body, str) else body
         try:
@@ -331,10 +345,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(b)))
             self.send_header("Cache-Control", "no-store")
+            self._cors()
             self.end_headers()
             self.wfile.write(b)
         except (BrokenPipeError, ConnectionResetError):
             pass  # client hung up (e.g. long request abandoned) — harmless
+
+    def do_OPTIONS(self):
+        try:
+            self.send_response(204)
+            self._cors()
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def _json_body(self):
         n = int(self.headers.get("Content-Length", 0) or 0)
