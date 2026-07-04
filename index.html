@@ -147,6 +147,20 @@
   .art.collapsed .art-body { display: none; }
   .art.collapsed .art-head h1 { margin-bottom: 0.2rem; opacity: 0.72; }
   .art.collapsed .read-badge { display: flex; }
+  .read-badge .heart { color: var(--accent); }
+
+  .love-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem; margin: 0.2rem auto 0;
+    background: none; border: none; font-family: var(--serif); cursor: pointer;
+    color: var(--ink-soft); font-size: 0.86rem; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700; padding: 0.5rem 1rem;
+  }
+  .love-btn .ic { font-size: 1.1rem; line-height: 1; }
+  .love-btn.loved { color: var(--accent); }
+
+  .gen-note { text-align: center; color: var(--ink-soft); font-size: 0.96rem; font-style: italic; margin-top: 1.1rem; min-height: 1.2em; }
+  .btn[disabled] { opacity: 0.6; cursor: default; }
+  .regen { margin-top: 0.9rem; }
 
   .divider {
     display: flex; align-items: center; gap: 1rem; color: var(--ink-soft);
@@ -203,6 +217,8 @@
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
+  let apiOk = false;         // true when the local generator server is reachable
+  let remoteLoved = new Set(); // loved keys synced from the Mac via loved.json
 
   // ---------- helpers ----------
   function ymd(d) {
@@ -226,6 +242,62 @@
   }
   function readCount(isoStr, articles) {
     return articles.reduce((n, a) => n + (isRead(isoStr, a.rank) ? 1 : 0), 0);
+  }
+
+  // ---------- loved-state (device localStorage + synced-down loved.json) ----------
+  function getLovedLocal() {
+    try { return JSON.parse(localStorage.getItem("dm-loved") || "{}"); } catch (e) { return {}; }
+  }
+  function isLoved(key) { return !!getLovedLocal()[key] || remoteLoved.has(key); }
+  function toggleLove(key) {
+    const l = getLovedLocal();
+    const now = !l[key];
+    if (now) l[key] = true; else delete l[key];
+    try { localStorage.setItem("dm-loved", JSON.stringify(l)); } catch (e) {}
+    if (now) remoteLoved.add(key); else remoteLoved.delete(key);
+    if (apiOk) {
+      fetch("api/love", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, loved: now }) }).catch(() => {});
+    }
+    return now;
+  }
+
+  // ---------- local generator server detection ----------
+  function ping() {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    return fetch("api/ping", { signal: ctrl.signal, cache: "no-store" })
+      .then(r => r.ok ? r.json() : null).catch(() => null)
+      .finally(() => clearTimeout(t));
+  }
+  function loadRemoteLoved() {
+    return fetch("loved.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && Array.isArray(d.loved)) remoteLoved = new Set(d.loved); })
+      .catch(() => {});
+  }
+  function generateToday(btn, noteEl, force) {
+    btn.disabled = true;
+    btn.textContent = "Writing today’s articles…";
+    const fail = (msg) => { btn.disabled = false; btn.textContent = "Try generating again"; noteEl.textContent = msg; };
+    const finish = (res) => {
+      const readings = res.readings || (res.articles && res.articles.readings) || (todayData && todayData.readings) || {};
+      todayData = { date: todayIso, readings, articles: res.articles };
+      noteEl.textContent = "Done — enjoy today’s devotions.";
+      renderHome();
+    };
+    const poll = () => {
+      fetch("api/gen-status", { cache: "no-store" }).then(r => r.json()).then(s => {
+        if (s.running) { noteEl.textContent = (s.phase || "Working…") + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
+        if (s.done && s.result) {
+          if (s.result.ok && s.result.articles) finish(s.result);
+          else fail("Couldn’t generate: " + (s.result.error || "unknown error"));
+        } else { setTimeout(poll, 3000); }
+      }).catch(e => setTimeout(poll, 4000));
+    };
+    fetch("api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) })
+      .then(r => r.json())
+      .then(res => { if (res.ok) { noteEl.textContent = "Starting…"; poll(); } else fail("Couldn’t start: " + (res.error || "unknown")); })
+      .catch(e => fail("Couldn’t reach the generator: " + e));
   }
 
   function readingsList(readings, heading) {
@@ -254,10 +326,17 @@
       '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + todayData.articles[0].minutes + " minutes</small></button>" +
       "</div>" +
       '<button class="archive-link" id="archive">Past Days ›</button>' +
+      (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
       '<p class="home-note">Fresh articles from today’s passages, every morning.</p>';
     document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
     document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
     document.getElementById("archive").onclick = renderArchive;
+    const regen = document.getElementById("regen");
+    if (regen) regen.onclick = () => {
+      if (!confirm("Rewrite today’s 4 articles? This replaces the current set.")) return;
+      const note = document.createElement("div"); note.className = "gen-note"; regen.after(note);
+      generateToday(regen, note, true);
+    };
   }
 
   // ---------- archive ----------
@@ -300,17 +379,22 @@
 
   // ---------- reading ----------
   function articleHtml(a, idx, count, isoStr, collapsed) {
+    const key = isoStr + "#" + a.rank;
+    const loved = isLoved(key);
     return '<section class="art' + (collapsed ? " collapsed" : "") + '" data-rank="' + a.rank + '">' +
       (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
       '<button class="art-head">' +
       '<div class="kicker"><span>' + esc(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
       "<h1>" + esc(a.title) + "</h1>" +
-      '<div class="read-badge"><span class="chev">✓</span> Read · tap to reopen</div>' +
+      '<div class="read-badge"><span class="chev">✓</span> Read · tap to reopen' +
+      (loved ? ' <span class="heart">♥</span>' : "") + "</div>" +
       "</button>" +
       '<div class="art-body">' +
       '<p class="dek">' + esc(a.dek) + "</p>" +
       '<div class="body">' + a.body + "</div>" +
       '<div class="end-mark">❦</div>' +
+      '<button class="love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
+      '<span class="ic">' + (loved ? "♥" : "♡") + '</span> ' + (loved ? "Loved" : "Love this") + "</button>" +
       '<button class="collapse-btn">Collapse ▲</button>' +
       "</div></section>";
   }
@@ -340,13 +424,19 @@
     const more = document.getElementById("more");
     if (more) more.onclick = () => openDay(isoStr, data, { bestOnly: false, onBack: opts.onBack });
 
-    // expand / collapse toggles
+    // expand / collapse + love toggles
     app.querySelectorAll(".art").forEach(sec => {
       sec.querySelector(".art-head").onclick = () => { if (sec.classList.contains("collapsed")) sec.classList.remove("collapsed"); };
       sec.querySelector(".collapse-btn").onclick = () => {
         sec.classList.add("collapsed");
         sec.scrollIntoView({ block: "start" });
         window.scrollBy(0, -60);
+      };
+      const lb = sec.querySelector(".love-btn");
+      lb.onclick = () => {
+        const now = toggleLove(lb.dataset.key);
+        lb.classList.toggle("loved", now);
+        lb.innerHTML = '<span class="ic">' + (now ? "♥" : "♡") + '</span> ' + (now ? "Loved" : "Love this");
       };
     });
 
@@ -375,15 +465,23 @@
       '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
       '<div class="home-date">' + prettyFromIso(todayIso, true) + "</div></header>" +
       (planReadings ? readingsList(planReadings, "Today’s Readings") : "") +
-      '<button class="archive-link" id="archive">Past Days ›</button>' +
       '<div class="missing"><h2>Today’s articles aren’t ready yet</h2>' +
-      "<p>Open Claude Code and say <em>“today’s devotions”</em> to generate them.</p>" +
-      "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p></div>";
+      (apiOk
+        ? '<p>Tap below and Daily Manna will write today’s four articles for you.</p>'
+          + '<div class="gen-wrap"><button class="btn btn-primary" id="gen">✍️ Generate today’s devotions</button>'
+          + '<div class="gen-note" id="gen-note"></div></div>'
+        : '<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>'
+          + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
+      '<button class="archive-link" id="archive">Past Days ›</button></div>';
     document.getElementById("archive").onclick = renderArchive;
+    const gen = document.getElementById("gen");
+    if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
   }
 
   // ---------- boot ----------
-  loadDay(todayIso)
+  Promise.all([ping(), loadRemoteLoved()])
+    .then(([p]) => { apiOk = !!(p && p.canGenerate); })
+    .then(() => loadDay(todayIso))
     .then(d => { todayData = d; renderHome(); })
     .catch(() =>
       fetch("plan.json", { cache: "no-store" })

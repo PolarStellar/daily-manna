@@ -1,0 +1,4 @@
+studio/.secrets
+studio/__pycache__/
+*.tmp
+.DS_Store
