@@ -197,6 +197,29 @@
   .day-row .d-progress { font-size: 0.8rem; color: var(--ink-soft); }
   .day-row .chev { color: var(--accent); font-size: 1.2rem; }
 
+  /* ---------- calendar dashboard ---------- */
+  .cal { margin-top: 1.2rem; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
+  .cal-title { font-size: 1.5rem; font-weight: 700; color: var(--ink); }
+  .cal-nav { background: none; border: none; font-family: var(--serif); cursor: pointer; color: var(--accent); font-size: 1.9rem; line-height: 1; padding: 0.2rem 0.9rem; border-radius: 10px; }
+  .cal-nav:active { background: var(--paper-deep); }
+  .cal-jump { text-align: center; margin-bottom: 1rem; color: var(--ink-soft); font-size: 0.9rem; }
+  .cal-jump input { font-family: var(--serif); font-size: 1rem; margin-left: 0.5rem; padding: 0.45rem 0.6rem; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-wd { text-align: center; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; padding-bottom: 0.3rem; }
+  .cal-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border: none; background: var(--paper-deep); color: var(--ink); font-family: var(--serif); font-size: 1.05rem; border-radius: 12px; cursor: pointer; }
+  .cal-cell.blank { background: none; cursor: default; }
+  .cal-cell.has { background: var(--accent); color: #fdf9f1; font-weight: 700; }
+  .cal-cell.today { box-shadow: inset 0 0 0 2.5px var(--accent); }
+  .cal-cell.has.today { box-shadow: inset 0 0 0 2.5px #fdf9f1; }
+  .cal-cell.future:not(.has) { color: var(--ink-soft); opacity: 0.5; }
+  .cal-cell:not(.blank):active { transform: scale(0.94); }
+  .cal-legend { display: flex; gap: 1.4rem; justify-content: center; margin-top: 1.2rem; color: var(--ink-soft); font-size: 0.85rem; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  .cal-legend .lg { width: 14px; height: 14px; border-radius: 5px; display: inline-block; }
+  .cal-legend .lg.has { background: var(--accent); }
+  .cal-legend .lg.none { background: var(--paper-deep); }
+
   .missing { text-align: center; padding: 3rem 1rem; color: var(--ink-soft); }
   .missing h2 { font-size: 1.5rem; color: var(--ink); margin-bottom: 1rem; }
   .missing p { margin-bottom: 0.8rem; }
@@ -219,6 +242,9 @@
   let todayData = null;      // today's articles (or null if not generated)
   let apiOk = false;         // true when the local generator server is reachable
   let remoteLoved = new Set(); // loved keys synced from the Mac via loved.json
+  let plan = {};             // MM-DD -> readings, for any date's passages
+  let generatedSet = new Set(); // ISO dates that have articles
+  let calState = null;       // {y, m} month the calendar is showing
 
   // ---------- helpers ----------
   function ymd(d) {
@@ -275,30 +301,43 @@
       .then(d => { if (d && Array.isArray(d.loved)) remoteLoved = new Set(d.loved); })
       .catch(() => {});
   }
-  function generateToday(btn, noteEl, force) {
+  function loadPlan() {
+    return fetch("plan.json", { cache: "no-store" }).then(r => r.ok ? r.json() : {})
+      .then(p => { plan = p; }).catch(() => {});
+  }
+  function loadGenerated() {
+    return fetch("content/index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : { days: [] })
+      .then(idx => { generatedSet = new Set(idx.days || []); }).catch(() => {});
+  }
+  function goToday() {
+    if (todayData) renderHome(); else renderMissing(plan[todayIso.slice(5)]);
+  }
+
+  // Generate a specific date; onSuccess(data) fires when the articles are ready.
+  function runGenerate(iso, btn, noteEl, force, onSuccess) {
     btn.disabled = true;
-    btn.textContent = "Writing today’s articles…";
-    const fail = (msg) => { btn.disabled = false; btn.textContent = "Try generating again"; noteEl.textContent = msg; };
-    const finish = (res) => {
-      const readings = res.readings || (res.articles && res.articles.readings) || (todayData && todayData.readings) || {};
-      todayData = { date: todayIso, readings, articles: res.articles };
-      noteEl.textContent = "Done — enjoy today’s devotions.";
-      renderHome();
-    };
+    btn.textContent = "Writing the articles…";
+    const fail = (msg) => { btn.disabled = false; btn.textContent = "Try again"; noteEl.textContent = msg; };
     const poll = () => {
       fetch("api/gen-status", { cache: "no-store" }).then(r => r.json()).then(s => {
         if (s.running) { noteEl.textContent = (s.phase || "Working…") + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
         if (s.done && s.result) {
-          if (s.result.ok && s.result.articles) finish(s.result);
-          else fail("Couldn’t generate: " + (s.result.error || "unknown error"));
+          if (s.result.ok && s.result.articles) {
+            const data = { date: iso, readings: plan[iso.slice(5)] || {}, articles: s.result.articles };
+            dayCache[iso] = data; generatedSet.add(iso);
+            if (iso === todayIso) todayData = data;
+            noteEl.textContent = "Done!";
+            onSuccess(data);
+          } else fail("Couldn’t generate: " + (s.result.error || "unknown error"));
         } else { setTimeout(poll, 3000); }
       }).catch(e => setTimeout(poll, 4000));
     };
-    fetch("api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ force: !!force }) })
+    fetch("api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: iso, force: !!force }) })
       .then(r => r.json())
       .then(res => { if (res.ok) { noteEl.textContent = "Starting…"; poll(); } else fail("Couldn’t start: " + (res.error || "unknown")); })
       .catch(e => fail("Couldn’t reach the generator: " + e));
   }
+  function generateToday(btn, noteEl, force) { runGenerate(todayIso, btn, noteEl, force, () => renderHome()); }
 
   function readingsList(readings, heading) {
     return '<div class="readings-card"><h2>' + heading + '</h2><ul>' +
@@ -325,12 +364,12 @@
       '<button class="btn btn-primary" id="read-all">' + primaryLabel + "<small>" + primarySmall + "</small></button>" +
       '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + todayData.articles[0].minutes + " minutes</small></button>" +
       "</div>" +
-      '<button class="archive-link" id="archive">Past Days ›</button>' +
+      '<button class="archive-link" id="browse">Browse by date ›</button>' +
       (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
       '<p class="home-note">Fresh articles from today’s passages, every morning.</p>';
     document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
     document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
-    document.getElementById("archive").onclick = renderArchive;
+    document.getElementById("browse").onclick = renderCalendar;
     const regen = document.getElementById("regen");
     if (regen) regen.onclick = () => {
       if (!confirm("Rewrite today’s 4 articles? This replaces the current set.")) return;
@@ -339,34 +378,90 @@
     };
   }
 
-  // ---------- archive ----------
-  function renderArchive() {
+  // ---------- calendar dashboard ----------
+  function isoFor(y, m, d) {
+    return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+  }
+  function renderCalendar() {
     window.scrollTo(0, 0);
+    if (!calState) { const t = new Date(); calState = { y: t.getFullYear(), m: t.getMonth() }; }
+    const { y, m } = calState;
+    const title = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const wd = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    let cells = "";
+    for (let i = 0; i < first; i++) cells += '<div class="cal-cell blank"></div>';
+    for (let d = 1; d <= days; d++) {
+      const iso = isoFor(y, m, d);
+      const cls = "cal-cell" + (generatedSet.has(iso) ? " has" : "") +
+        (iso === todayIso ? " today" : "") + (iso > todayIso ? " future" : "");
+      cells += '<button class="' + cls + '" data-iso="' + iso + '">' + d + "</button>";
+    }
     app.innerHTML =
       '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div></header>' +
-      '<div class="archive-head"><h2>Past Days</h2></div>' +
-      '<div id="daybox"><p class="home-note">Loading…</p></div>' +
+      '<div class="cal">' +
+        '<div class="cal-head"><button class="cal-nav" id="prev" aria-label="previous month">‹</button>' +
+        '<div class="cal-title">' + title + "</div>" +
+        '<button class="cal-nav" id="next" aria-label="next month">›</button></div>' +
+        '<div class="cal-jump"><label>Jump to a date <input type="date" id="jump" value="' + todayIso + '"></label></div>' +
+        '<div class="cal-grid">' + wd.map(w => '<div class="cal-wd">' + w + "</div>").join("") + cells + "</div>" +
+        '<div class="cal-legend"><span><span class="lg has"></span> Has articles</span>' +
+        '<span><span class="lg none"></span> None yet</span></div>' +
+      "</div>" +
       '<button class="archive-link" id="home">‹ Back to Today</button>';
-    document.getElementById("home").onclick = renderHome;
-    fetch("content/index.json", { cache: "no-store" })
-      .then(r => r.ok ? r.json() : { days: [] })
-      .then(idx => {
-        const days = (idx.days || []).slice().sort().reverse();
-        const box = document.getElementById("daybox");
-        if (!days.length) { box.innerHTML = '<p class="home-note">No past days yet. They’ll appear here as you generate them.</p>'; return; }
-        box.innerHTML = '<ul class="day-list">' + days.map(dayRow).join("") + "</ul>";
-        box.querySelectorAll(".day-row").forEach(el => {
-          el.onclick = () => loadDay(el.dataset.iso).then(d => openDay(el.dataset.iso, d, { bestOnly: false, onBack: renderArchive }));
-        });
-      })
-      .catch(() => { document.getElementById("daybox").innerHTML = '<p class="home-note">Couldn’t load past days.</p>'; });
+    document.getElementById("home").onclick = goToday;
+    document.getElementById("prev").onclick = () => { calState = { y: m === 0 ? y - 1 : y, m: m === 0 ? 11 : m - 1 }; renderCalendar(); };
+    document.getElementById("next").onclick = () => { calState = { y: m === 11 ? y + 1 : y, m: m === 11 ? 0 : m + 1 }; renderCalendar(); };
+    document.getElementById("jump").onchange = (e) => { if (e.target.value) openDate(e.target.value); };
+    app.querySelectorAll(".cal-cell[data-iso]").forEach(c => { c.onclick = () => openDate(c.dataset.iso); });
   }
 
-  function dayRow(isoStr) {
-    return '<li><button class="day-row" data-iso="' + isoStr + '">' +
-      '<span><span class="d-date">' + prettyFromIso(isoStr, false) + "</span>" +
-      '<span class="d-meta">' + isoStr.slice(0, 4) + "</span></span>" +
-      '<span class="d-right"><span class="chev">›</span></span></button></li>';
+  function openDate(iso) {
+    if (iso === todayIso) return goToday();
+    renderDayCard(iso);
+  }
+
+  // A single date's page: its readings, then Read (if it has articles) or Generate.
+  function renderDayCard(iso) {
+    window.scrollTo(0, 0);
+    const readings = plan[iso.slice(5)];
+    const has = generatedSet.has(iso);
+    const back = () => renderDayCard(iso);
+    app.innerHTML =
+      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Calendar</button>' +
+      '<span class="where">' + prettyFromIso(iso, false) + "</span></div></div>" +
+      '<main class="reading" style="padding-top:3.6rem">' +
+      '<div class="home-date" style="text-align:center">' + prettyFromIso(iso, true) + "</div>" +
+      (readings ? readingsList(readings, "Readings for this day")
+        : '<div class="missing"><p>No reading plan entry for this date.</p></div>') +
+      (readings && has
+        ? '<div class="choice"><button class="btn btn-primary" id="read-all">Read the 4 Articles</button>' +
+          '<button class="btn btn-secondary" id="read-best">Just the Best One</button></div>' +
+          (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate this day</button>' : "")
+        : readings
+          ? (apiOk
+              ? '<div class="gen-wrap"><p class="home-note" style="margin-top:0">No articles for this day yet.</p>' +
+                '<button class="btn btn-primary" id="gen">✍️ Generate this day’s devotions</button>' +
+                '<div class="gen-note" id="gen-note"></div></div>'
+              : '<div class="missing"><p>No articles yet. Open this day on your Mac to generate them.</p></div>')
+          : "") +
+      "</main>";
+    document.getElementById("back").onclick = renderCalendar;
+    if (readings && has) {
+      document.getElementById("read-all").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: false, onBack: back }));
+      document.getElementById("read-best").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: true, onBack: back }));
+      const rg = document.getElementById("regen");
+      if (rg) rg.onclick = () => {
+        if (!confirm("Rewrite this day’s 4 articles? This replaces the current set.")) return;
+        const n = document.createElement("div"); n.className = "gen-note"; rg.after(n);
+        runGenerate(iso, rg, n, true, (d) => openDay(iso, d, { bestOnly: false, onBack: back }));
+      };
+    } else if (readings && apiOk) {
+      const gen = document.getElementById("gen");
+      if (gen) gen.onclick = () => runGenerate(iso, gen, document.getElementById("gen-note"), false,
+        (d) => openDay(iso, d, { bestOnly: false, onBack: back }));
+    }
   }
 
   const dayCache = {};
@@ -472,23 +567,17 @@
           + '<div class="gen-note" id="gen-note"></div></div>'
         : '<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>'
           + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
-      '<button class="archive-link" id="archive">Past Days ›</button></div>';
-    document.getElementById("archive").onclick = renderArchive;
+      '<button class="archive-link" id="browse">Browse by date ›</button></div>';
+    document.getElementById("browse").onclick = renderCalendar;
     const gen = document.getElementById("gen");
     if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
   }
 
   // ---------- boot ----------
-  Promise.all([ping(), loadRemoteLoved()])
+  Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated()])
     .then(([p]) => { apiOk = !!(p && p.canGenerate); })
-    .then(() => loadDay(todayIso))
-    .then(d => { todayData = d; renderHome(); })
-    .catch(() =>
-      fetch("plan.json", { cache: "no-store" })
-        .then(r => r.json())
-        .then(plan => renderMissing(plan[todayIso.slice(5)]))
-        .catch(() => renderMissing(null))
-    );
+    .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
+    .then(() => goToday());
 })();
 </script>
 </body>
