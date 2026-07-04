@@ -30,7 +30,9 @@ and adds the write-side API the public site can't have:
 - `GET /api/gen-status` → progress for the button to poll.
 - `POST /api/love` → records a ♥ into `loved.json` (see Hearts).
 
-Start it:  `python3 studio/serve.py`  (or it auto-starts via launchd — see below)
+Start it: **double-click `Start Daily Manna.command`** (keep the window open),
+or run `python3 studio/serve.py`. First run may ask Terminal for permission to
+read your Documents folder — click OK.
 
 It binds `127.0.0.1` (Mac-only, no Tailscale needed). Generation uses your
 claude.ai login. Model is **Sonnet** (fast, strong writer) — change `CLAUDE_MODEL`
@@ -66,10 +68,12 @@ personal collection until they reach the Mac.
 | `studio/serve.py` | Local generator + control server |
 | `studio/ARTICLE_PROMPT.md` | The single-article writing spec |
 
-## Always-on (launchd)
+## Keeping it running
 
-`launchctl load ~/Library/LaunchAgents/com.kris.daily-manna.plist` keeps the
-Studio server running so the button always works. `launchctl unload …` stops it.
+Double-click **`Start Daily Manna.command`** and leave the window open — that's
+the whole server. (A background launchd agent can't be used here: macOS privacy
+blocks background agents from reading `~/Documents`, where this project lives.
+The double-click launcher runs in your session, which has that access.)
 
 ## Troubleshooting
 
