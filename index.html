@@ -166,7 +166,9 @@
   .print-head { display: none; }
 
   /* ---------- print / Save-as-PDF: isolate one article, drop all UI ---------- */
-  @page { margin: 1.6cm; }
+  /* margin:0 suppresses the browser's own URL/date header & footer; the page
+     whitespace is provided by padding on the article instead. */
+  @page { margin: 0; }
   @media print {
     .topbar, .progress, .more-wrap, .finish, .divider,
     .love-btn, .collapse-btn, .export-btn, .read-badge, .kicker .mins { display: none !important; }
@@ -174,7 +176,7 @@
     main.reading { padding-top: 0 !important; }
     .wrap { max-width: 100%; padding: 0; }
     body.printing .art { display: none !important; }
-    body.printing .art.print-target { display: block !important; padding-top: 0; }
+    body.printing .art.print-target { display: block !important; padding: 1.5cm 1.3cm !important; }
     body.printing .art.print-target .art-body { display: block !important; }
     .art.print-target .print-head {
       display: block; text-align: center; margin-bottom: 1.4rem; color: var(--accent);
