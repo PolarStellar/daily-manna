@@ -157,6 +157,32 @@
   }
   .love-btn .ic { font-size: 1.1rem; line-height: 1; }
   .love-btn.loved { color: var(--accent); }
+  .export-btn {
+    display: inline-flex; align-items: center; gap: 0.45rem; margin: 0.2rem auto 0;
+    background: none; border: none; font-family: var(--serif); cursor: pointer;
+    color: var(--accent); font-size: 0.86rem; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700; padding: 0.5rem 1rem;
+  }
+  .print-head { display: none; }
+
+  /* ---------- print / Save-as-PDF: isolate one article, drop all UI ---------- */
+  @page { margin: 1.6cm; }
+  @media print {
+    .topbar, .progress, .more-wrap, .finish, .divider,
+    .love-btn, .collapse-btn, .export-btn, .read-badge, .kicker .mins { display: none !important; }
+    body { background: #fff; }
+    main.reading { padding-top: 0 !important; }
+    .wrap { max-width: 100%; padding: 0; }
+    body.printing .art { display: none !important; }
+    body.printing .art.print-target { display: block !important; padding-top: 0; }
+    body.printing .art.print-target .art-body { display: block !important; }
+    .art.print-target .print-head {
+      display: block; text-align: center; margin-bottom: 1.4rem; color: var(--accent);
+      font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700;
+    }
+    .art h1 { page-break-after: avoid; }
+    .body blockquote { page-break-inside: avoid; }
+  }
 
   .gen-note { text-align: center; color: var(--ink-soft); font-size: 0.96rem; font-style: italic; margin-top: 1.1rem; min-height: 1.2em; }
   .btn[disabled] { opacity: 0.6; cursor: default; }
@@ -480,11 +506,32 @@
       .then(d => { dayCache[isoStr] = d; return d; });
   }
 
+  // Save one article as a PDF via the browser's print-to-PDF (works on phone
+  // via the share sheet). We isolate the target article, print, then restore.
+  function exportPdf(sec) {
+    const wasCollapsed = sec.classList.contains("collapsed");
+    sec.classList.remove("collapsed");
+    document.body.classList.add("printing");
+    sec.classList.add("print-target");
+    let done = false;
+    const cleanup = () => {
+      if (done) return; done = true;
+      window.removeEventListener("afterprint", cleanup);
+      document.body.classList.remove("printing");
+      sec.classList.remove("print-target");
+      if (wasCollapsed) sec.classList.add("collapsed");
+    };
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(cleanup, 60000);       // fallback if afterprint never fires (some mobile browsers)
+    setTimeout(() => window.print(), 80);
+  }
+
   // ---------- reading ----------
   function articleHtml(a, idx, count, isoStr, collapsed) {
     const key = isoStr + "#" + a.rank;
     const loved = isLoved(key);
     return '<section class="art' + (collapsed ? " collapsed" : "") + '" data-rank="' + a.rank + '">' +
+      '<div class="print-head">Daily Manna &middot; ' + esc(prettyFromIso(isoStr, true)) + "</div>" +
       (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
       '<button class="art-head">' +
       '<div class="kicker"><span>' + esc(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
@@ -498,6 +545,7 @@
       '<div class="end-mark">❦</div>' +
       '<button class="love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
       '<span class="ic">' + (loved ? "♥" : "♡") + '</span> ' + (loved ? "Loved" : "Love this") + "</button>" +
+      '<button class="export-btn">⬇ Save as PDF</button>' +
       '<button class="collapse-btn">Collapse ▲</button>' +
       "</div></section>";
   }
@@ -541,6 +589,7 @@
         lb.classList.toggle("loved", now);
         lb.innerHTML = '<span class="ic">' + (now ? "♥" : "♡") + '</span> ' + (now ? "Loved" : "Love this");
       };
+      sec.querySelector(".export-btn").onclick = () => exportPdf(sec);
     });
 
     // progress bar + mark-as-read: an article counts as read once its end
