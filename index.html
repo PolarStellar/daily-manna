@@ -633,6 +633,10 @@
   }
 
   // ---------- boot ----------
+  // Offline cache: keeps generated articles readable with no Mac / no VPN / no signal.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
   Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated()])
     .then(([p]) => { if (p) { apiBase = p.base; apiOk = !!(p.info && p.info.canGenerate); } })
     .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
