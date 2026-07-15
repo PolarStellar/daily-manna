@@ -64,6 +64,8 @@
     flex: none; width: 5.6rem; font-size: 0.78rem; letter-spacing: 0.1em;
     text-transform: uppercase; color: var(--accent); font-weight: 700;
   }
+  .readings-card li a.ref { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--rule); }
+  .kicker a.ref { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .choice { display: flex; flex-direction: column; gap: 0.9rem; }
   .btn {
     display: block; width: 100%; border: none; cursor: pointer;
@@ -287,6 +289,12 @@
       { weekday: "long", month: "long", day: "numeric", year: withYear ? "numeric" : undefined });
   }
   function esc(s) { const el = document.createElement("div"); el.textContent = s; return el.innerHTML; }
+  // A tappable Scripture reference → opens the passage on BibleGateway (NIV).
+  function refLink(ref) {
+    const url = "https://www.biblegateway.com/passage/?version=NIV&search=" +
+      encodeURIComponent(String(ref).replace(/[–—]/g, "-"));
+    return '<a class="ref" href="' + url + '" target="_blank" rel="noopener">' + esc(ref) + "</a>";
+  }
 
   // ---------- read-state (per device, localStorage) ----------
   function getRead() {
@@ -377,7 +385,7 @@
 
   function readingsList(readings, heading) {
     return '<div class="readings-card"><h2>' + heading + '</h2><ul>' +
-      READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + esc(readings[k]) + "</span></li>" : "").join("") +
+      READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + refLink(readings[k]) + "</span></li>" : "").join("") +
       "</ul></div>";
   }
 
@@ -536,7 +544,7 @@
       '<div class="print-head">Daily Manna &middot; ' + esc(prettyFromIso(isoStr, true)) + "</div>" +
       (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
       '<button class="art-head">' +
-      '<div class="kicker"><span>' + esc(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
+      '<div class="kicker"><span>' + refLink(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
       "<h1>" + esc(a.title) + "</h1>" +
       '<div class="read-badge"><span class="chev">✓</span> Read · tap to reopen' +
       (loved ? ' <span class="heart">♥</span>' : "") + "</div>" +

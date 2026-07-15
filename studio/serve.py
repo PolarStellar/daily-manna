@@ -50,6 +50,50 @@ SLOTS = [
     {"rank": 4, "reading": "prov", "label": "Proverbs", "texture": "practical and gospel-centered"},
 ]
 
+# Illustration lenses — the day's 4 articles each get a DIFFERENT one so the
+# batch never leans on the same well (esp. not Philippine current events).
+# Rotated by day-of-year so the mix shifts daily. Kris: roam widely, lean positive.
+LENSES = [
+    "a moment from world history (any country, any era) — a person, discovery, or turning point",
+    "something from nature — an animal, insect, plant, or the human body — that does something surprising most people don't know",
+    "a business story, case study, or how a person/organization solved a hard problem",
+    "a recent, POSITIVE news story or an uplifting public moment (e.g. an inspiring speech), from anywhere",
+    "a discovery or how-it-works from science or medicine",
+    "a story from another culture or country that a Filipino would still feel",
+    "a slice of everyday Filipino life, or a hopeful local story",
+    "a figure from history whose courage, kindness, or wisdom mirrors the passage",
+]
+ILLUS_LEDGER = os.path.join(ROOT, "used_illustrations.json")
+
+
+def lenses_for(iso):
+    """Pick 4 distinct lenses for the day, offset by day-of-year for variety."""
+    doy = datetime.date.fromisoformat(iso).timetuple().tm_yday
+    return [LENSES[(doy + i) % len(LENSES)] for i in range(4)]
+
+
+def load_used_illustrations(limit=60):
+    try:
+        data = json.load(open(ILLUS_LEDGER))
+        return [e["label"] for e in data.get("used", [])][-limit:]
+    except Exception:
+        return []
+
+
+def record_illustrations(iso, articles):
+    used = []
+    try:
+        used = json.load(open(ILLUS_LEDGER)).get("used", [])
+    except Exception:
+        pass
+    for a in articles:
+        lab = (a.get("illustration") or "").strip()
+        if lab:
+            used.append({"date": iso, "label": lab})
+    tmp = ILLUS_LEDGER + ".tmp"
+    json.dump({"used": used[-400:]}, open(tmp, "w"), ensure_ascii=False, indent=1)
+    os.replace(tmp, ILLUS_LEDGER)
+
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".json": "application/json",
                 ".webmanifest": "application/manifest+json", ".png": "image/png",
                 ".svg": "image/svg+xml", ".css": "text/css", ".js": "text/javascript"}
@@ -200,14 +244,18 @@ def fetch_news(iso):
         return ""
 
 
-def build_article_prompt(iso, slot, reading_ref, news_block):
+def build_article_prompt(iso, slot, reading_ref, news_block, lens, avoid):
+    avoid_block = ("\n".join("- " + a for a in avoid) if avoid
+                   else "(nothing yet — you have a clean slate.)")
     tmpl = open(ARTICLE_PROMPT_FILE).read()
     return (tmpl.replace("{{DATE}}", iso).replace("{{PRETTY_DATE}}", pretty(iso))
             .replace("{{READING_LABEL}}", slot["label"])
             .replace("{{READING_REF}}", reading_ref)
             .replace("{{RANK}}", str(slot["rank"]))
             .replace("{{TEXTURE}}", slot["texture"])
-            .replace("{{NEWS}}", news_block or "(no fresh news fetched — use a timeless Filipino illustration.)")
+            .replace("{{LENS}}", lens)
+            .replace("{{AVOID}}", avoid_block)
+            .replace("{{NEWS}}", news_block or "(no fresh news fetched — draw from the lens above instead.)")
             .replace("{{LOVED_BLOCK}}", loved_block()))
 
 
@@ -219,12 +267,13 @@ def _validate_article(a, rank):
             raise ValueError(f"missing field: {k}")
     a["rank"] = rank
     a["minutes"] = int(a["minutes"])
+    a["illustration"] = (a.get("illustration") or "").strip()
     return a
 
 
-def gen_one_article(iso, slot, reading_ref, news_block):
+def gen_one_article(iso, slot, reading_ref, news_block, lens, avoid):
     """Write one article: Claude, retry once, then Gemini fallback."""
-    prompt = build_article_prompt(iso, slot, reading_ref, news_block)
+    prompt = build_article_prompt(iso, slot, reading_ref, news_block, lens, avoid)
     errors = []
     attempts = [(_run_claude, {"allow_web": False}), (_run_claude, {"allow_web": False}),
                 (_run_gemini, {})]
@@ -248,11 +297,13 @@ def _generate_core(iso, force, push, phase):
 
     phase("Looking for today's news…")
     news_block = fetch_news(iso)
+    lenses = lenses_for(iso)                 # 4 distinct illustration domains for the day
+    avoid = load_used_illustrations()        # never reuse a past illustration
     phase("Writing the 4 articles…")
     articles, errors = [], []
     with ThreadPoolExecutor(max_workers=4) as pool:    # 4 writers in parallel
-        futs = [pool.submit(gen_one_article, iso, s, readings[s["reading"]], news_block)
-                for s in SLOTS]
+        futs = [pool.submit(gen_one_article, iso, s, readings[s["reading"]], news_block, lenses[i], avoid)
+                for i, s in enumerate(SLOTS)]
         for fut in futs:
             try:
                 articles.append(fut.result())
@@ -267,6 +318,7 @@ def _generate_core(iso, force, push, phase):
     tmp = out + ".tmp"
     json.dump(obj, open(tmp, "w"), ensure_ascii=False, indent=1)
     os.replace(tmp, out)
+    record_illustrations(iso, articles)      # remember what we used so it's never reused
     rebuild_index()
     published = False
     if push:
@@ -320,7 +372,7 @@ def git_publish(iso):
     def git(*args):
         return subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
     try:
-        git("add", "content/", "loved.json")
+        git("add", "content/", "loved.json", "used_illustrations.json")
         c = git("-c", "user.name=Kris Salta", "-c", "user.email=johns@mercola.com",
                 "commit", "-m", f"Daily Manna: articles for {iso}")
         if c.returncode != 0 and "nothing to commit" not in (c.stdout + c.stderr):
