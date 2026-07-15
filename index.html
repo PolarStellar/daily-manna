@@ -250,6 +250,15 @@
   .cal-legend .lg.has { background: var(--accent); }
   .cal-legend .lg.none { background: var(--paper-deep); }
 
+  /* prev / next date nav on a day page */
+  .day-nav { display: flex; justify-content: space-between; align-items: center; margin: 0.1rem 0 1.6rem; }
+  .day-nav button {
+    background: none; border: none; font-family: var(--serif); cursor: pointer;
+    color: var(--accent); font-size: 1rem; font-weight: 700; padding: 0.4rem 0.6rem;
+    letter-spacing: 0.02em; border-radius: 8px;
+  }
+  .day-nav button:active { background: var(--paper-deep); }
+
   .missing { text-align: center; padding: 3rem 1rem; color: var(--ink-soft); }
   .missing h2 { font-size: 1.5rem; color: var(--ink); margin-bottom: 1rem; }
   .missing p { margin-bottom: 0.8rem; }
@@ -426,6 +435,15 @@
   function isoFor(y, m, d) {
     return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
   }
+  function shiftIso(iso, delta) {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + delta);
+    return isoFor(dt.getFullYear(), dt.getMonth(), dt.getDate());
+  }
+  function shortIso(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
   function renderCalendar() {
     window.scrollTo(0, 0);
     if (!calState) { const t = new Date(); calState = { y: t.getFullYear(), m: t.getMonth() }; }
@@ -477,6 +495,8 @@
       '<span class="where">' + prettyFromIso(iso, false) + "</span></div></div>" +
       '<main class="reading" style="padding-top:3.6rem">' +
       '<div class="home-date" style="text-align:center">' + prettyFromIso(iso, true) + "</div>" +
+      '<div class="day-nav"><button id="prevday">‹ ' + shortIso(shiftIso(iso, -1)) + "</button>" +
+      '<button id="nextday">' + shortIso(shiftIso(iso, 1)) + " ›</button></div>" +
       (readings ? readingsList(readings, "Readings for this day")
         : '<div class="missing"><p>No reading plan entry for this date.</p></div>') +
       (readings && has
@@ -492,6 +512,8 @@
           : "") +
       "</main>";
     document.getElementById("back").onclick = renderCalendar;
+    document.getElementById("prevday").onclick = () => openDate(shiftIso(iso, -1));
+    document.getElementById("nextday").onclick = () => openDate(shiftIso(iso, 1));
     if (readings && has) {
       document.getElementById("read-all").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: false, onBack: back }));
       document.getElementById("read-best").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: true, onBack: back }));
