@@ -39,6 +39,45 @@ claude.ai login. Model is **Sonnet** (fast, strong writer) — change `CLAUDE_MO
 in `serve.py` for a different one. Optional Gemini fallback: put
 `{"GEMINI_API_KEY": "…"}` in `studio/.secrets` (gitignored).
 
+## Listening (narrated articles)
+
+Any article with a narrated MP3 gets a small **Listen** player under the dek:
+play/pause, a scrubbable progress bar, and a speed toggle (1× / 1.25× / 1.5× /
+0.85×). It remembers where you stopped, only one article plays at a time,
+collapsing an article stops it, and hearing one to the end marks it read. If a
+day has no audio, no player appears — nothing else changes.
+
+Audio lives in `audio/<date>/<rank>.mp3`, and `audio/index.json` is what the app
+checks. Both are committed so the phone can play them from the live site.
+
+**Pick a voice first.** Renders the same real article through three calm female
+voices so you can compare:
+
+```
+python3 scripts/audition_voices.py            # latest day, article 1 → audio/auditions/
+VOICES=rachel,sarah python3 scripts/audition_voices.py    # try the swap-ins
+```
+
+Then narrate for real (default voice `charlotte`, model `eleven_v3`):
+
+```
+python3 scripts/generate_audio.py             # latest day, all 4 articles
+VOICE=lily python3 scripts/generate_audio.py 2026-08-08
+python3 scripts/generate_audio.py --all       # backfill every day missing audio
+```
+
+Existing files are skipped; `FORCE=1` re-renders. `audio/auditions/` is
+gitignored, the real `audio/<date>/` is not.
+
+Needs an ElevenLabs key — `{"ELEVENLABS_API_KEY": "…"}` in `studio/.secrets`
+(gitignored), or `ELEVENLABS_API_KEY` in the environment.
+
+**Watch the repo size.** At the default `mp3_44100_64` a 7-minute article is
+~3 MB, so a full day is ~12 MB and a month is ~350 MB. If that gets heavy,
+set `ELEVEN_FORMAT=mp3_22050_32` (about half), narrate only article 1 each day,
+or delete old `audio/<date>/` folders and re-run `generate_audio.py` to rewrite
+`audio/index.json`.
+
 ## Hearts (teaching the writer your taste)
 
 Tap **♥ Love this** at the end of any article. Loved articles are saved to your

@@ -167,13 +167,45 @@
   }
   .print-head { display: none; }
 
+  /* ---------- listen (narrated article) ---------- */
+  .listen {
+    display: flex; align-items: center; gap: 0.85rem;
+    margin: 0 0 1.9rem; padding: 0.7rem 0.9rem;
+    background: var(--paper-deep); border-radius: 12px;
+  }
+  .listen-play {
+    flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%;
+    border: none; cursor: pointer; background: var(--accent); color: var(--paper);
+    font-size: 0.9rem; line-height: 1; display: flex; align-items: center;
+    justify-content: center; padding-left: 0.12em;
+  }
+  .listen.playing .listen-play { background: var(--accent-soft); padding-left: 0; }
+  .listen-play:disabled { background: var(--rule); cursor: default; }
+  .listen-mid { flex: 1; min-width: 0; }
+  .listen-bar {
+    height: 5px; border-radius: 3px; background: var(--rule);
+    cursor: pointer; overflow: hidden;
+  }
+  .listen-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; }
+  .listen-time {
+    display: flex; justify-content: space-between; gap: 0.6rem;
+    margin-top: 0.35rem; font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase; font-weight: 700; color: var(--ink-soft);
+  }
+  .listen-rate {
+    flex: none; background: none; border: 1px solid var(--rule); border-radius: 999px;
+    font-family: var(--serif); cursor: pointer; color: var(--ink-soft);
+    font-size: 0.76rem; font-weight: 700; padding: 0.28rem 0.6rem;
+  }
+
   /* ---------- print / Save-as-PDF: isolate one article, drop all UI ---------- */
   /* margin:0 suppresses the browser's own URL/date header & footer; the page
      whitespace is provided by padding on the article instead. */
   @page { margin: 0; }
   @media print {
     .topbar, .progress, .more-wrap, .finish, .divider,
-    .love-btn, .collapse-btn, .export-btn, .read-badge, .kicker .mins { display: none !important; }
+    .love-btn, .collapse-btn, .export-btn, .read-badge, .kicker .mins,
+    .listen { display: none !important; }
     body { background: #fff; }
     main.reading { padding-top: 0 !important; }
     .wrap { max-width: 100%; padding: 0; }
@@ -286,6 +318,7 @@
   let remoteLoved = new Set(); // loved keys synced from the Mac via loved.json
   let plan = {};             // MM-DD -> readings, for any date's passages
   let generatedSet = new Set(); // ISO dates that have articles
+  let audioIndex = {};       // ISO date -> [ranks] that have a narrated MP3
   let calState = null;       // {y, m} month the calendar is showing
 
   // ---------- helpers ----------
@@ -361,6 +394,14 @@
   function loadGenerated() {
     return fetch("content/index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : { days: [] })
       .then(idx => { generatedSet = new Set(idx.days || []); }).catch(() => {});
+  }
+  // Which articles have narration. Missing file just means no Listen buttons.
+  function loadAudioIndex() {
+    return fetch("audio/index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : {})
+      .then(idx => { audioIndex = idx || {}; }).catch(() => {});
+  }
+  function hasAudio(isoStr, rank) {
+    return (audioIndex[isoStr] || []).indexOf(rank) !== -1;
   }
   function goToday() {
     if (todayData) renderHome(); else renderMissing(plan[todayIso.slice(5)]);
@@ -573,6 +614,14 @@
       "</button>" +
       '<div class="art-body">' +
       '<p class="dek">' + esc(a.dek) + "</p>" +
+      (hasAudio(isoStr, a.rank)
+        ? '<div class="listen" data-src="audio/' + isoStr + "/" + a.rank + '.mp3">' +
+          '<button class="listen-play" aria-label="Listen to this article">▶</button>' +
+          '<div class="listen-mid"><div class="listen-bar"><div class="listen-fill"></div></div>' +
+          '<div class="listen-time"><span class="listen-label">Listen</span><span class="listen-clock"></span></div></div>' +
+          '<button class="listen-rate" aria-label="Playback speed">1×</button>' +
+          "</div>"
+        : "") +
       '<div class="body">' + a.body + "</div>" +
       '<div class="end-mark">❦</div>' +
       '<button class="love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
@@ -580,6 +629,109 @@
       '<button class="export-btn">⬇ Save as PDF</button>' +
       '<button class="collapse-btn">Collapse ▲</button>' +
       "</div></section>";
+  }
+
+  // ---------- listen ----------
+  // One narrated MP3 per article (audio/<date>/<rank>.mp3). The <audio> element
+  // is created on first tap so opening a day never pulls down four files.
+  let nowPlaying = null;     // the only element allowed to be playing
+  const RATES = [1, 1.25, 1.5, 0.85];
+
+  function clock(s) {
+    if (!isFinite(s)) return "";
+    const m = Math.floor(s / 60);
+    return m + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+  }
+
+  function setupListen(sec, isoStr) {
+    const box = sec.querySelector(".listen");
+    if (!box) return;
+    const src = box.dataset.src;
+    const playBtn = box.querySelector(".listen-play");
+    const rateBtn = box.querySelector(".listen-rate");
+    const fill = box.querySelector(".listen-fill");
+    const bar = box.querySelector(".listen-bar");
+    const label = box.querySelector(".listen-label");
+    const clockEl = box.querySelector(".listen-clock");
+    const posKey = "dm-audio-pos:" + src;
+    let audio = null;
+
+    const paint = () => {
+      const d = audio && audio.duration;
+      const t = audio ? audio.currentTime : 0;
+      fill.style.width = (d ? (t / d) * 100 : 0) + "%";
+      clockEl.textContent = d ? clock(t) + " / " + clock(d) : "";
+    };
+
+    const make = () => {
+      if (audio) return audio;
+      audio = new Audio(src);
+      audio.preload = "metadata";
+      audio.playbackRate = RATES[Number(rateBtn.dataset.i || 0)];
+      const saved = Number(localStorage.getItem(posKey) || 0);
+      audio.addEventListener("loadedmetadata", () => {
+        // Resume where you stopped, unless you were basically done.
+        if (saved > 3 && saved < audio.duration - 5) audio.currentTime = saved;
+        paint();
+      });
+      audio.addEventListener("timeupdate", () => {
+        paint();
+        try { localStorage.setItem(posKey, String(audio.currentTime)); } catch (e) {}
+      });
+      audio.addEventListener("ended", () => {
+        playBtn.textContent = "▶";
+        box.classList.remove("playing");
+        try { localStorage.removeItem(posKey); } catch (e) {}
+        markRead(isoStr, Number(sec.dataset.rank));   // heard it end = read it
+        label.textContent = "Finished";
+      });
+      audio.addEventListener("error", () => {
+        label.textContent = "Audio unavailable";
+        playBtn.disabled = true;
+      });
+      return audio;
+    };
+
+    playBtn.onclick = () => {
+      const a = make();
+      if (a.paused) {
+        if (nowPlaying && nowPlaying !== a) nowPlaying.pause();
+        nowPlaying = a;
+        a.play().catch(() => { label.textContent = "Tap again to play"; });
+        playBtn.textContent = "❚❚";
+        box.classList.add("playing");
+        label.textContent = "Listening";
+      } else {
+        a.pause();
+        playBtn.textContent = "▶";
+        box.classList.remove("playing");
+        label.textContent = "Paused";
+      }
+    };
+
+    rateBtn.onclick = () => {
+      const i = (Number(rateBtn.dataset.i || 0) + 1) % RATES.length;
+      rateBtn.dataset.i = String(i);
+      rateBtn.textContent = RATES[i] + "×";
+      if (audio) audio.playbackRate = RATES[i];
+    };
+
+    bar.onclick = (e) => {
+      const a = make();
+      if (!a.duration) return;
+      const r = bar.getBoundingClientRect();
+      a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * a.duration;
+      paint();
+    };
+
+    // Collapsing an article stops its narration.
+    sec.querySelector(".collapse-btn").addEventListener("click", () => {
+      if (audio && !audio.paused) {
+        audio.pause();
+        playBtn.textContent = "▶";
+        box.classList.remove("playing");
+      }
+    });
   }
 
   function openDay(isoStr, data, opts) {
@@ -622,6 +774,7 @@
         lb.innerHTML = '<span class="ic">' + (now ? "♥" : "♡") + '</span> ' + (now ? "Loved" : "Love this");
       };
       sec.querySelector(".export-btn").onclick = () => exportPdf(sec);
+      setupListen(sec, isoStr);
     });
 
     // progress bar + mark-as-read: an article counts as read once its end
@@ -667,7 +820,7 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
-  Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated()])
+  Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated(), loadAudioIndex()])
     .then(([p]) => { if (p) { apiBase = p.base; apiOk = !!(p.info && p.info.canGenerate); } })
     .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
     .then(() => goToday());

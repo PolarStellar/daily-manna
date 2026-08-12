@@ -24,12 +24,14 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;                  // never touch love/generate POSTs
   if (url.origin !== self.location.origin) return;   // ignore the Mac/tailnet API (cross-origin)
   if (url.pathname.includes("/api/")) return;        // never cache the generator API
+  if (req.headers.has("range")) return;              // audio seeks — 206s can't be cached
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (res && res.ok) {
+        // Only full 200s are cacheable; Cache.put rejects on a 206.
+        if (res && res.status === 200) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
         }
         return res;
       })
