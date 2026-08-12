@@ -170,9 +170,10 @@
   /* ---------- listen (narrated article) ---------- */
   .listen {
     display: flex; align-items: center; gap: 0.85rem;
-    margin: 0 0 1.9rem; padding: 0.7rem 0.9rem;
+    margin: 1.6rem 0 0.4rem; padding: 0.7rem 0.9rem;
     background: var(--paper-deep); border-radius: 12px;
   }
+  .art.collapsed .listen { margin-bottom: 0.9rem; }
   .listen-play {
     flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%;
     border: none; cursor: pointer; background: var(--accent); color: var(--paper);
@@ -606,6 +607,18 @@
     return '<section class="art' + (collapsed ? " collapsed" : "") + '" data-rank="' + a.rank + '">' +
       '<div class="print-head">Daily Manna &middot; ' + esc(prettyFromIso(isoStr, true)) + "</div>" +
       (idx > 0 ? '<div class="divider">Article ' + (idx + 1) + " of " + count + "</div>" : "") +
+      // Above the headline and outside .art-body on purpose: it has to be the
+      // first thing you see, and it has to stay reachable on an article you've
+      // already read (those render collapsed, which hides .art-body).
+      (hasAudio(isoStr, a.rank)
+        ? '<div class="listen" data-src="audio/' + isoStr + "/" + a.rank + '.mp3">' +
+          '<button class="listen-play" aria-label="Listen to this article">▶</button>' +
+          '<div class="listen-mid"><div class="listen-bar"><div class="listen-fill"></div></div>' +
+          '<div class="listen-time"><span class="listen-label">Listen to this article</span>' +
+          '<span class="listen-clock"></span></div></div>' +
+          '<button class="listen-rate" aria-label="Playback speed">1×</button>' +
+          "</div>"
+        : "") +
       '<button class="art-head">' +
       '<div class="kicker"><span>' + refLink(a.passage) + '</span><span class="mins">' + a.minutes + " min read</span></div>" +
       "<h1>" + esc(a.title) + "</h1>" +
@@ -614,14 +627,6 @@
       "</button>" +
       '<div class="art-body">' +
       '<p class="dek">' + esc(a.dek) + "</p>" +
-      (hasAudio(isoStr, a.rank)
-        ? '<div class="listen" data-src="audio/' + isoStr + "/" + a.rank + '.mp3">' +
-          '<button class="listen-play" aria-label="Listen to this article">▶</button>' +
-          '<div class="listen-mid"><div class="listen-bar"><div class="listen-fill"></div></div>' +
-          '<div class="listen-time"><span class="listen-label">Listen</span><span class="listen-clock"></span></div></div>' +
-          '<button class="listen-rate" aria-label="Playback speed">1×</button>' +
-          "</div>"
-        : "") +
       '<div class="body">' + a.body + "</div>" +
       '<div class="end-mark">❦</div>' +
       '<button class="love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
