@@ -110,12 +110,23 @@ def has_articles(iso):
     return (CONTENT / f"{iso}.json").exists()
 
 
+def job_running():
+    try:
+        return bool(get("api/gen-status").get("running"))
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
 def generate_day(iso):
     """Kick off one day and wait for it. Returns (ok, detail)."""
     try:
-        post("api/generate", {"date": iso})
+        started = post("api/generate", {"date": iso})
     except (urllib.error.URLError, OSError) as e:
         return False, f"could not reach the server: {e}"
+    # serve.py runs one job at a time; if a different day was already in flight
+    # our poll below would read that day's result as ours.
+    if started.get("date") and started["date"] != iso:
+        return False, f"server is busy with {started['date']}"
 
     deadline = time.time() + DAY_TIMEOUT
     last_phase = ""
@@ -168,7 +179,10 @@ def main():
         say(f"gate: Studio server not answering at {BASE} — stopping, nothing done")
         return 1
     if not args.ignore_busy and claude_busy():
-        say("gate: an interactive claude session is open — backing off, nothing done")
+        say("gate: a Claude session is open — backing off, nothing done")
+        return 1
+    if job_running():
+        say("gate: the Studio server is already generating a day — backing off")
         return 1
 
     ok, failed = [], []

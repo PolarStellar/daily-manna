@@ -39,6 +39,42 @@ claude.ai login. Model is **Sonnet** (fast, strong writer) — change `CLAUDE_MO
 in `serve.py` for a different one. Optional Gemini fallback: put
 `{"GEMINI_API_KEY": "…"}` in `studio/.secrets` (gitignored).
 
+## A week at a time (and the agent that does it for you)
+
+`scripts/generate_week.py` writes a whole week, one day at a time, resting
+between days so a week's generation never lands on the Claude rate limit in one
+burst. It is idempotent — days that already have articles are skipped — so a
+failed or half-finished run is just run again.
+
+```
+python3 scripts/generate_week.py                     # this week, Mon–Sun
+python3 scripts/generate_week.py --start 2026-08-10 --days 7
+python3 scripts/generate_week.py --gap 600           # rest 10 min between days
+python3 scripts/generate_week.py --dry-run           # say what it would do
+```
+
+It refuses to start unless every gate is open, and says which one stopped it:
+
+- the Studio server answers on `127.0.0.1:8790` (so: Mac awake, app running)
+- no Claude session of yours is open — terminal or desktop app (`--ignore-busy`
+  overrides; serve.py's own headless `claude -p` writers don't count)
+- no generation is already in flight
+
+**The agent.** `scripts/install_weekly_agent.sh` installs a launchd job that
+runs the above hourly from 7am to 9pm. Because it gates and skips, almost every
+pass does nothing and exits in well under a second — it only does real work when
+the week is short *and* you're not using Claude. That also means a Mac that was
+off on Monday, or a day that failed, gets picked up on the next pass instead of
+waiting a week.
+
+```
+./scripts/install_weekly_agent.sh install daily      # or: install monday
+./scripts/install_weekly_agent.sh status
+./scripts/install_weekly_agent.sh uninstall
+```
+
+Progress and back-offs are logged to `logs/generate_week.log` (gitignored).
+
 ## Listening (narrated articles)
 
 Any article with a narrated MP3 gets a small **Listen** player under the dek:
