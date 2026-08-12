@@ -3,3 +3,4 @@ studio/__pycache__/
 *.tmp
 .DS_Store
 audio/auditions/
+logs/

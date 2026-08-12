@@ -41,6 +41,24 @@ EXTRA = {
 }
 
 
+# Kris's other pipelines already hold this key; borrow it rather than keeping a
+# second copy in this repo. First hit wins.
+SHARED_ENVS = [
+    Path.home() / "Documents/MCS/Podcast Pipeline/.env",
+    Path.home() / "Documents/MCS/Claude Code/REBUILD/AutoShorts/.env",
+]
+
+
+def _from_env_file(path):
+    if not path.exists():
+        return None
+    for line in path.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if line.startswith("ELEVENLABS_API_KEY") and "=" in line:
+            return line.split("=", 1)[1].strip().strip("'\"")
+    return None
+
+
 def api_key():
     key = os.environ.get("ELEVENLABS_API_KEY")
     if key:
@@ -53,10 +71,13 @@ def api_key():
             sys.exit(f"{secrets} is not valid JSON.")
         if key:
             return key.strip()
+    for path in SHARED_ENVS:
+        key = _from_env_file(path)
+        if key:
+            return key
     sys.exit(
-        "No ElevenLabs API key. Put it in studio/.secrets as\n"
-        '  {"ELEVENLABS_API_KEY": "sk_..."}\n'
-        "or export ELEVENLABS_API_KEY."
+        "No ElevenLabs API key. Checked $ELEVENLABS_API_KEY, studio/.secrets, and:\n  "
+        + "\n  ".join(str(p) for p in SHARED_ENVS)
     )
 
 
