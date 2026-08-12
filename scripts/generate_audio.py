@@ -36,7 +36,7 @@ CHUNK = int(os.environ.get("ELEVEN_CHUNK", "2400"))
 FORMAT = os.environ.get("ELEVEN_FORMAT", "mp3_44100_64")
 
 NAMED = {name: vid for name, vid, _ in VOICES} | {n: v for n, (v, _) in EXTRA.items()}
-DEFAULT_VOICE = os.environ.get("VOICE", "charlotte")
+DEFAULT_VOICE = os.environ.get("VOICE", "matilda")   # Kris picked this by ear
 
 
 def voice_id():
@@ -72,10 +72,12 @@ def synth(key, vid, text, prev, nxt):
         "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
     }
     # Gives the model the surrounding prose so chunk seams don't reset prosody.
-    if prev:
-        payload["previous_text"] = prev[-400:]
-    if nxt:
-        payload["next_text"] = nxt[:400]
+    # eleven_v3 rejects these outright, so only the v2 models get them.
+    if not MODEL.startswith("eleven_v3"):
+        if prev:
+            payload["previous_text"] = prev[-400:]
+        if nxt:
+            payload["next_text"] = nxt[:400]
     req = urllib.request.Request(
         f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format={FORMAT}",
         data=json.dumps(payload).encode(),
@@ -95,17 +97,60 @@ def synth(key, vid, text, prev, nxt):
     return b""
 
 
+def join(pieces, dest):
+    """Stitch chunk MP3s into one file.
+
+    Each chunk comes back as a self-contained MP3 with its own header, so simply
+    concatenating the bytes leaves those headers stranded mid-stream — decoders
+    report "Header missing" at every seam and seeking goes wrong. Remux through
+    ffmpeg's concat demuxer instead (stream copy, so no quality is lost).
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    if len(pieces) == 1:
+        dest.write_bytes(pieces[0])
+        return
+    if not shutil.which("ffmpeg"):
+        print("      note: ffmpeg not found — seams may click")
+        dest.write_bytes(b"".join(pieces))
+        return
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        paths = []
+        for i, piece in enumerate(pieces):
+            p = tmp / f"{i:03d}.mp3"
+            p.write_bytes(piece)
+            paths.append(p)
+        listing = tmp / "list.txt"
+        listing.write_text("".join(f"file '{p}'\n" for p in paths))
+        proc = subprocess.run(
+            ["ffmpeg", "-v", "error", "-f", "concat", "-safe", "0",
+             "-i", str(listing), "-c", "copy", "-y", str(dest)],
+            check=True, capture_output=True, text=True,
+        )
+        # Each chunk carries its own timestamps, so the muxer grumbles about
+        # non-monotonic dts at every seam. The joined file decodes clean and
+        # reports the right duration; only that one line is noise.
+        noise = [l for l in proc.stderr.splitlines()
+                 if l.strip() and "non monotonically increasing dts" not in l]
+        for line in noise:
+            print(f"      ffmpeg: {line}")
+
+
 def render(key, vid, article, dest):
     parts = chunks(to_speech_text(article))
-    audio = b""
+    pieces = []
     for i, part in enumerate(parts):
         prev = parts[i - 1] if i else ""
         nxt = parts[i + 1] if i + 1 < len(parts) else ""
-        audio += synth(key, vid, part, prev, nxt)
+        pieces.append(synth(key, vid, part, prev, nxt))
         print(f"      chunk {i + 1}/{len(parts)}", flush=True)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(audio)
-    return len(audio)
+    join(pieces, dest)
+    return dest.stat().st_size
 
 
 def write_index():
@@ -121,13 +166,46 @@ def write_index():
     return idx
 
 
+def prune(keep_days):
+    """Drop narration older than keep_days. Articles stay; only audio ages out.
+
+    Narration is the only thing in this repo that grows by megabytes a day, so
+    without this the repo outgrows GitHub Pages in a couple of months.
+    """
+    import datetime
+
+    cutoff = (datetime.date.today() - datetime.timedelta(days=keep_days)).isoformat()
+    freed = 0
+    for day_dir in sorted(AUDIO.glob("20*")):
+        if not day_dir.is_dir() or day_dir.name >= cutoff:
+            continue
+        for mp3 in day_dir.glob("*.mp3"):
+            freed += mp3.stat().st_size
+            mp3.unlink()
+        day_dir.rmdir()
+        print(f"pruned {day_dir.name}")
+    write_index()
+    print(f"Freed {freed // (1024 * 1024)} MB (kept the last {keep_days} days).")
+
+
 def main():
     args = sys.argv[1:]
+    if args and args[0] == "--prune":
+        prune(int(args[1]) if len(args) > 1 else 30)
+        return
+
     days = sorted(p.stem for p in CONTENT.glob("20*.json"))
     if not days:
         sys.exit("No content files found.")
 
-    if "--all" in args:
+    if "--from" in args:
+        i = args.index("--from")
+        start = args[i + 1]
+        end = args[args.index("--to") + 1] if "--to" in args else "9999"
+        targets = [(d, None) for d in days if start <= d <= end]
+    elif "--all" in args:
+        # Every day ever written — that is months of articles and hundreds of
+        # megabytes. Usually you want --from/--to for a single week.
         targets = [(d, None) for d in days]
     elif args and args[0].startswith("20"):
         targets = [(args[0], int(args[1]) if len(args) > 1 else None)]
@@ -155,6 +233,10 @@ def main():
             print(f"{date} #{a['rank']}: {a['title']}")
             size = render(key, vid, a, dest)
             made += 1
+            # Rewrite the index after every article, not just at the end: a long
+            # run that is interrupted should still leave the app able to play
+            # everything already rendered.
+            write_index()
             print(f"      -> {dest.relative_to(ROOT)}  {size // 1024} KB")
 
     idx = write_index()
