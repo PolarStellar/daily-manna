@@ -19,6 +19,14 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 ACTION="${1:-status}"
 MODE="${2:-daily}"
 
+# macOS TCC does not give a launchd job the Documents-folder access that Terminal
+# has, so a job pointed straight at the repo fails with "Operation not permitted"
+# before it runs a single line. The agent therefore runs from a copy kept here,
+# in --remote mode, reaching the repo only through the Studio server's HTTP API.
+AGENT_DIR="$HOME/Library/Application Support/daily-manna"
+AGENT="$AGENT_DIR/generate_week.py"
+AGENT_LOG="$HOME/Library/Logs/daily-manna-week.log"
+
 write_plist() {
   local intervals=""
   local weekday_line=""
@@ -34,7 +42,8 @@ $weekday_line
 "
   done
 
-  mkdir -p "$HOME/Library/LaunchAgents" "$REPO/logs"
+  mkdir -p "$HOME/Library/LaunchAgents" "$AGENT_DIR" "$HOME/Library/Logs"
+  cp "$REPO/scripts/generate_week.py" "$AGENT"
   cat > "$PLIST" <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,16 +53,16 @@ $weekday_line
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/python3</string>
-    <string>$REPO/scripts/generate_week.py</string>
+    <string>$AGENT</string>
+    <string>--remote</string>
     <string>--gap</string><string>300</string>
   </array>
-  <key>WorkingDirectory</key><string>$REPO</string>
   <key>StartCalendarInterval</key>
   <array>
 $intervals  </array>
   <key>RunAtLoad</key><false/>
-  <key>StandardOutPath</key><string>$REPO/logs/launchd.out</string>
-  <key>StandardErrorPath</key><string>$REPO/logs/launchd.err</string>
+  <key>StandardOutPath</key><string>$HOME/Library/Logs/daily-manna-launchd.out</string>
+  <key>StandardErrorPath</key><string>$HOME/Library/Logs/daily-manna-launchd.err</string>
 </dict>
 </plist>
 PLIST_EOF
@@ -69,12 +78,23 @@ case "$ACTION" in
     launchctl bootstrap "gui/$UID" "$PLIST"
     echo "installed: $LABEL ($MODE, hourly 7am-9pm)"
     echo "plist:     $PLIST"
-    echo "log:       $REPO/logs/generate_week.log"
+    echo "agent:     $AGENT"
+    echo "log:       $AGENT_LOG"
     ;;
   uninstall)
     launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
-    rm -f "$PLIST"
+    rm -f "$PLIST" "$AGENT"
     echo "removed: $LABEL"
+    ;;
+  test)
+    # Proves the whole chain under launchd: readable script, reachable server,
+    # gates evaluated, log written. Exit 1 here means a gate closed, not a crash.
+    launchctl kickstart -k "gui/$UID/$LABEL"
+    sleep 6
+    echo "--- launchd stderr (should be empty):"
+    cat "$HOME/Library/Logs/daily-manna-launchd.err" 2>/dev/null || true
+    echo "--- agent log:"
+    tail -5 "$AGENT_LOG" 2>/dev/null || echo "(no log written — the agent never ran)"
     ;;
   status)
     if launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then

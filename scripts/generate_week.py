@@ -33,8 +33,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTENT = ROOT / "content"
-LOG = ROOT / "logs" / "generate_week.log"
 BASE = "http://127.0.0.1:8790"
+
+# --remote exists because of macOS TCC: a launchd job does not inherit the
+# Documents-folder permission that Terminal has, so the scheduled copy of this
+# script lives outside ~/Documents and must never touch the repo directly. In
+# that mode the day list comes from the Studio server over HTTP and the log goes
+# somewhere launchd can always write.
+REMOTE = "--remote" in sys.argv
+LOG = (Path.home() / "Library/Logs/daily-manna-week.log" if REMOTE
+       else ROOT / "logs" / "generate_week.log")
 
 POLL = 15          # seconds between gen-status polls
 DAY_TIMEOUT = 1500  # 25 min — a day that takes longer than this has hung
@@ -106,8 +114,15 @@ def week_dates(start, days):
     return [(start + dt.timedelta(days=i)).isoformat() for i in range(days)]
 
 
-def has_articles(iso):
-    return (CONTENT / f"{iso}.json").exists()
+def existing_days():
+    """The days that already have articles, as a set of ISO strings."""
+    if REMOTE:
+        try:
+            return set(get("content/index.json").get("days") or [])
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            say(f"could not read the day index from the server: {e}")
+            return None
+    return {p.stem for p in CONTENT.glob("20*.json")}
 
 
 def job_running():
@@ -160,11 +175,23 @@ def main():
     ap.add_argument("--ignore-busy", action="store_true",
                     help="run even with an interactive claude session open")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--remote", action="store_true",
+                    help="never touch the repo directly; ask the Studio server instead")
     args = ap.parse_args()
 
     start = dt.date.fromisoformat(args.start) if args.start else monday_of(dt.date.today())
     dates = week_dates(start, args.days)
-    todo = [d for d in dates if not has_articles(d)]
+
+    # In --remote mode the server is the only way to see anything, so check it
+    # before asking it which days exist.
+    if not server_up():
+        say(f"gate: Studio server not answering at {BASE} — stopping, nothing done")
+        return 1
+
+    have = existing_days()
+    if have is None:
+        return 1
+    todo = [d for d in dates if d not in have]
 
     say(f"week starting {start} — {len(dates)} days, {len(todo)} missing")
     if not todo:
@@ -174,10 +201,6 @@ def main():
     if args.dry_run:
         say("dry run — would generate: " + ", ".join(todo))
         return 0
-
-    if not server_up():
-        say(f"gate: Studio server not answering at {BASE} — stopping, nothing done")
-        return 1
     if not args.ignore_busy and claude_busy():
         say("gate: a Claude session is open — backing off, nothing done")
         return 1
