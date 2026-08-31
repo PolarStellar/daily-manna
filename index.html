@@ -560,8 +560,35 @@
     document.getElementById("prevday").onclick = () => openDate(shiftIso(iso, -1));
     document.getElementById("nextday").onclick = () => openDate(shiftIso(iso, 1));
     if (readings && has) {
-      document.getElementById("read-all").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: false, onBack: back }));
-      document.getElementById("read-best").onclick = () => loadDay(iso).then(d => openDay(iso, d, { bestOnly: true, onBack: back }));
+      // These used to be bare .then() chains. When loadDay rejected — a flaky
+      // connection, or a day this device has never cached — the rejection went
+      // nowhere: no article, no error, the button just sat there looking dead.
+      // Failure now says so on screen and can be tapped again.
+      const openWith = (btn, bestOnly) => () => {
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Opening…";
+        loadDay(iso)
+          .then(d => openDay(iso, d, { bestOnly: bestOnly, onBack: back }))
+          .catch(err => {
+            btn.disabled = false;
+            btn.textContent = label;
+            let note = document.getElementById("open-err");
+            if (!note) {
+              note = document.createElement("div");
+              note.className = "gen-note";
+              note.id = "open-err";
+              btn.parentNode.appendChild(note);
+            }
+            note.textContent = navigator.onLine
+              ? "Couldn’t load this day (" + err.message + "). Tap again to retry."
+              : "You’re offline, and this day isn’t saved on this device yet. Tap again once you have a connection.";
+          });
+      };
+      const readAllBtn = document.getElementById("read-all");
+      const readBestBtn = document.getElementById("read-best");
+      readAllBtn.onclick = openWith(readAllBtn, false);
+      readBestBtn.onclick = openWith(readBestBtn, true);
       const rg = document.getElementById("regen");
       if (rg) rg.onclick = () => {
         if (!confirm("Rewrite this day’s 4 articles? This replaces the current set.")) return;
@@ -578,9 +605,23 @@
   const dayCache = {};
   function loadDay(isoStr) {
     if (dayCache[isoStr]) return Promise.resolve(dayCache[isoStr]);
-    return fetch("content/" + isoStr + ".json", { cache: "no-store" })
-      .then(r => { if (!r.ok) throw new Error("no content"); return r.json(); })
-      .then(d => { dayCache[isoStr] = d; return d; });
+    const url = "content/" + isoStr + ".json";
+    const keep = (d) => { dayCache[isoStr] = d; return d; };
+    // "no-store" is what stops a just-generated day arriving stale, but it also
+    // turns a dropped connection into a hard failure. So when the network says
+    // no, ask the offline cache before giving up — a day already read on this
+    // device should still open on a train with no signal.
+    return fetch(url, { cache: "no-store" })
+      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(keep)
+      .catch((err) =>
+        (window.caches ? caches.match(url) : Promise.resolve(null))
+          .catch(() => null)
+          .then((hit) => {
+            if (hit && hit.ok) return hit.json().then(keep);
+            throw err;
+          })
+      );
   }
 
   // Save one article as a PDF via the browser's print-to-PDF (works on phone
