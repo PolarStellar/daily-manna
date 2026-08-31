@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Daily Manna — Self Check</title>
+<style>
+  :root { --bg:#f7f2e9; --ink:#221d16; --dim:#6b6357; --ok:#1d7a3e; --bad:#a8261d; --card:#fffdf8; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:1.1rem; background:var(--bg); color:var(--ink);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-text-size-adjust:100%; }
+  h1 { font-size:1.3rem; margin:0 0 .2rem; }
+  .sub { color:var(--dim); font-size:.9rem; margin-bottom:1.1rem; }
+  .row { background:var(--card); border:1px solid #e6ded0; border-radius:10px;
+    padding:.7rem .85rem; margin-bottom:.55rem; }
+  .k { font-size:.74rem; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); }
+  .v { font-family:ui-monospace,Menlo,monospace; font-size:.92rem; margin-top:.2rem;
+    word-break:break-word; white-space:pre-wrap; }
+  .ok { color:var(--ok); font-weight:600; }
+  .bad { color:var(--bad); font-weight:600; }
+  button { width:100%; padding:1rem; font-size:1.05rem; font-weight:600; border-radius:10px;
+    border:0; margin-top:.9rem; -webkit-appearance:none; }
+  #fix { background:#a8261d; color:#fff; }
+  #copy { background:#221d16; color:#fff; }
+  #verdict { font-size:1.02rem; padding:.9rem; border-radius:10px; margin:1rem 0;
+    background:#fff; border:2px solid #e6ded0; }
+</style>
+</head>
+<body>
+<h1>Daily Manna — Self Check</h1>
+<div class="sub">Runs the exact steps that fail, right here on this device.</div>
+<div id="verdict">Running…</div>
+<div id="out"></div>
+<button id="fix">🧹 Force-clear the app cache &amp; reload</button>
+<button id="copy">📋 Copy this report</button>
+<script>
+var out = document.getElementById("out");
+var lines = [];
+function row(k, v, cls) {
+  lines.push(k + ": " + v);
+  var d = document.createElement("div");
+  d.className = "row";
+  d.innerHTML = '<div class="k"></div><div class="v"></div>';
+  d.querySelector(".k").textContent = k;
+  var vv = d.querySelector(".v");
+  vv.textContent = v;
+  if (cls) vv.className = "v " + cls;
+  out.appendChild(d);
+}
+function verdict(msg, good) {
+  var el = document.getElementById("verdict");
+  el.textContent = msg;
+  el.style.borderColor = good ? "#1d7a3e" : "#a8261d";
+  el.style.color = good ? "#1d7a3e" : "#a8261d";
+  lines.unshift("VERDICT: " + msg);
+}
+
+var DAY = "content/2026-08-30.json";
+
+function tryFetch(label, url, opts) {
+  var t0 = Date.now();
+  return fetch(url, opts)
+    .then(function (r) {
+      return r.text().then(function (t) {
+        return { label: label, ok: r.ok, status: r.status, bytes: t.length, ms: Date.now() - t0 };
+      });
+    })
+    .catch(function (e) {
+      return { label: label, ok: false, status: "THREW", err: e.name + ": " + e.message, ms: Date.now() - t0 };
+    });
+}
+
+(function run() {
+  row("Page URL", location.href);
+  row("Standalone (Home Screen app)", (window.navigator.standalone === true) ? "YES" : "no");
+  row("Online", navigator.onLine ? "yes" : "NO");
+  row("User agent", navigator.userAgent);
+
+  var steps = [];
+
+  // 1. What build is the cached index.html?
+  steps.push(
+    fetch("index.html?cb=" + Date.now())
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var m = t.match(/const BUILD = "([^"]+)"/);
+        var b = m ? m[1] : "(no BUILD found - OLD app)";
+        row("index.html build (from network)", b, m && m[1] === "3" ? "ok" : "bad");
+      })
+      .catch(function (e) { row("index.html build (from network)", "FAILED " + e.message, "bad"); })
+  );
+
+  // 2. Service workers + caches
+  steps.push((function () {
+    if (!navigator.serviceWorker) { row("Service worker", "unsupported"); return Promise.resolve(); }
+    return navigator.serviceWorker.getRegistrations().then(function (rs) {
+      row("Service worker registrations", rs.length ? rs.map(function (r) { return r.scope; }).join("\n") : "none");
+      row("Controlled by SW", navigator.serviceWorker.controller ? "YES" : "no");
+    }).catch(function (e) { row("Service worker", "error " + e.message); });
+  })());
+
+  steps.push((function () {
+    if (!window.caches) { row("Cache API", "unsupported"); return Promise.resolve(); }
+    return caches.keys().then(function (ks) {
+      row("Cache names", ks.length ? ks.join(", ") : "none",
+          ks.indexOf("daily-manna-v1") !== -1 ? "bad" : null);
+      return caches.match(DAY, { ignoreVary: true }).then(function (m) {
+        row("Aug 30 in offline cache", m ? "yes" : "no");
+      });
+    }).catch(function (e) { row("Cache API", "error " + e.message); });
+  })());
+
+  // 3. THE ACTUAL TEST — the three ways the app tries to load a day.
+  steps.push(
+    Promise.all([
+      tryFetch("A no-store", DAY, { cache: "no-store" }),
+      tryFetch("B plain+cachebust", DAY + "?t=" + Date.now(), undefined),
+      tryFetch("C default", DAY, undefined)
+    ]).then(function (rs) {
+      rs.forEach(function (r) {
+        row("Load Aug 30 — " + r.label,
+            (r.ok ? "OK " : "FAILED ") + r.status + (r.err ? " " + r.err : "") +
+            (r.bytes ? " (" + r.bytes + " bytes)" : "") + " in " + r.ms + "ms",
+            r.ok ? "ok" : "bad");
+      });
+      return rs;
+    })
+  );
+
+  Promise.all(steps).then(function (res) {
+    var loads = res[3] || [];
+    var noStore = loads[0] || {}, plain = loads[1] || {};
+    var buildRow = lines.join("\n");
+    var isNew = buildRow.indexOf('index.html build (from network): 3') !== -1;
+    var anyWorks = loads.some(function (r) { return r.ok; });
+
+    if (!anyWorks) {
+      verdict("The article file will not load on this device by ANY method. This is a network/DNS problem on the phone, not the app.", false);
+    } else if (!noStore.ok && plain.ok) {
+      verdict("CONFIRMED: no-store fetch fails on this phone, plain fetch works. Build 3 works around exactly this — if the app still fails, it is running OLD code. Tap Force-clear below.", false);
+    } else if (!isNew) {
+      verdict("Everything loads fine, but this device is serving an OLD index.html. Tap Force-clear below.", false);
+    } else {
+      verdict("All three load methods work AND build 3 is being served. The failure is NOT in loading the file — send me this report.", true);
+    }
+  });
+})();
+
+document.getElementById("fix").onclick = function () {
+  var b = this; b.textContent = "Clearing…"; b.disabled = true;
+  var jobs = [];
+  if (navigator.serviceWorker) {
+    jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+      return Promise.all(rs.map(function (r) { return r.unregister(); }));
+    }).catch(function () {}));
+  }
+  if (window.caches) {
+    jobs.push(caches.keys().then(function (ks) {
+      return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+    }).catch(function () {}));
+  }
+  Promise.all(jobs).then(function () {
+    b.textContent = "Cleared. Reopening the app…";
+    setTimeout(function () { location.replace("index.html?fresh=" + Date.now()); }, 900);
+  });
+};
+
+document.getElementById("copy").onclick = function () {
+  var t = lines.join("\n");
+  var b = this;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(t).then(function () { b.textContent = "✅ Copied - paste it to Kris"; },
+      function () { b.textContent = "Select the text above manually"; });
+  } else { b.textContent = "Select the text above manually"; }
+};
+</script>
+</body>
+</html>
