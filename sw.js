@@ -1,7 +1,11 @@
 /* Daily Manna service worker — makes generated articles readable offline / when
    the Mac is asleep or VPN is off. Network-first (so you get fresh articles when
    online), falling back to the on-device cache when the network isn't there. */
-const CACHE = "daily-manna-v1";
+// Bump this on any change to index.html or sw.js. activate() deletes every cache
+// that is not the current name, so moving the version is what forces a phone
+// holding an old app to throw it away. Leaving it pinned at v1 meant iPhones
+// kept serving a stale index.html long after a fix had shipped.
+const CACHE = "daily-manna-v3";
 const SHELL = ["./", "./index.html", "./plan.json", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -31,12 +35,20 @@ self.addEventListener("fetch", (e) => {
         // Only full 200s are cacheable; Cache.put rejects on a 206.
         if (res && res.status === 200) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          // Store under a plain GET for this URL rather than `req` itself:
+          // the app fetches with cache:"no-store", and Safari refuses to put a
+          // no-store request into a Cache, so on iOS nothing was ever saved for
+          // offline and every lookup below missed.
+          caches.open(CACHE)
+            .then((c) => c.put(new Request(req.url, { mode: "same-origin" }), copy))
+            .catch(() => {});
         }
         return res;
       })
       .catch(() =>
-        caches.match(req).then((m) =>
+        // Match by URL, ignoring the request's cache mode/headers, so a
+        // no-store fetch can still find the copy stored above.
+        caches.match(req.url, { ignoreVary: true }).then((m) =>
           m || (req.mode === "navigate" ? caches.match("./index.html") : Response.error())
         )
       )

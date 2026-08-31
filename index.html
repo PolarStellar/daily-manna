@@ -303,6 +303,8 @@
     body { font-size: 21px; }
     .art h1 { font-size: 2.5rem; }
   }
+  .build-stamp { text-align: center; font-size: .72rem; opacity: .35; margin-top: 1.6rem;
+    letter-spacing: .04em; }
 </style>
 </head>
 <body>
@@ -312,6 +314,11 @@
   const app = document.getElementById("app");
   const today = new Date();
   const todayIso = ymd(today);
+
+  // Shown small on the home screen. Its only job is to answer "is the phone
+  // actually running the code I just shipped?" — a question that cost a whole
+  // debugging round when an iPhone kept serving a cached app that looked fine.
+  const BUILD = "3";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -464,7 +471,8 @@
       "</div>" +
       '<button class="archive-link" id="browse">Browse by date ›</button>' +
       (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
-      '<p class="home-note">Fresh articles from today’s passages, every morning.</p>';
+      '<p class="home-note">Fresh articles from today’s passages, every morning.</p>' +
+      '<div class="build-stamp">build ' + BUILD + '</div>';
     document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
     document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
     document.getElementById("browse").onclick = renderCalendar;
@@ -581,7 +589,8 @@
               btn.parentNode.appendChild(note);
             }
             note.textContent = navigator.onLine
-              ? "Couldn’t load this day (" + err.message + "). Tap again to retry."
+              ? "Couldn’t load this day — " + (err.name || "Error") + ": " + err.message
+                + " · build " + BUILD + " · tap to retry"
               : "You’re offline, and this day isn’t saved on this device yet. Tap again once you have a connection.";
           });
       };
@@ -611,11 +620,20 @@
     // turns a dropped connection into a hard failure. So when the network says
     // no, ask the offline cache before giving up — a day already read on this
     // device should still open on a train with no signal.
+    const asJson = (r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); };
     return fetch(url, { cache: "no-store" })
-      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(asJson)
+      .catch((first) =>
+        // iOS Safari can fail a cache:"no-store" fetch outright when a service
+        // worker is in front of it — the desktop never sees this, which is why
+        // this worked everywhere except the phone. Retry as an ordinary request
+        // with a cache-busting query instead of giving up.
+        fetch(url + "?t=" + Date.now()).then(asJson).catch(() => { throw first; })
+      )
       .then(keep)
       .catch((err) =>
-        (window.caches ? caches.match(url) : Promise.resolve(null))
+        // Last resort: whatever the offline cache is holding.
+        (window.caches ? caches.match(url, { ignoreVary: true }) : Promise.resolve(null))
           .catch(() => null)
           .then((hit) => {
             if (hit && hit.ok) return hit.json().then(keep);
@@ -858,7 +876,8 @@
           + '<div class="gen-note" id="gen-note"></div></div>'
         : '<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>'
           + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
-      '<button class="archive-link" id="browse">Browse by date ›</button></div>';
+      '<button class="archive-link" id="browse">Browse by date ›</button>' +
+      '<div class="build-stamp">build ' + BUILD + '</div></div>';
     document.getElementById("browse").onclick = renderCalendar;
     const gen = document.getElementById("gen");
     if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
