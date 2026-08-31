@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Daily Manna</title>
 <meta name="description" content="Daily devotional articles from the SCC Bible reading plan.">
+<!-- Public so it reads anywhere without a VPN, but kept out of search. -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot" content="noindex, nofollow">
 <meta name="theme-color" content="#f7f2e9">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
@@ -825,10 +828,26 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
-  Promise.all([ping(), loadRemoteLoved(), loadPlan(), loadGenerated(), loadAudioIndex()])
-    .then(([p]) => { if (p) { apiBase = p.base; apiOk = !!(p.info && p.info.canGenerate); } })
+  // Reading must never wait on the generator. Finding the Mac means a same-origin
+  // probe plus, off the Mac, a Tailscale URL that is simply unreachable without
+  // the VPN — up to ~3s of nothing on the public site, which read like the site
+  // needed a VPN it does not need. So: render from the static files first, then
+  // let the ping land in its own time and re-render only if it changes anything
+  // (i.e. it found a Mac that can generate).
+  Promise.all([loadRemoteLoved(), loadPlan(), loadGenerated(), loadAudioIndex()])
     .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
-    .then(() => goToday());
+    .then(() => goToday())
+    .then(() => ping().then(p => {
+      if (!p) return;                       // no Mac reachable — read-only, as rendered
+      apiBase = p.base;
+      const canGen = !!(p.info && p.info.canGenerate);
+      if (canGen === apiOk) return;         // nothing on screen depends on this
+      apiOk = canGen;
+      // Only redraw if he is still on the home screen. #browse exists on both
+      // home views and nowhere else, so its absence means he already tapped into
+      // an article or the calendar — and a late redraw would throw him out of it.
+      if (document.getElementById("browse")) goToday();
+    }));
 })();
 </script>
 </body>

@@ -5,6 +5,10 @@ the SCC Bible Reading Plan, Filipino-first, written by Claude.
 
 **Live site (read anywhere):** https://polarstellar.github.io/daily-manna/
 
+Reading needs no Mac, no Tailscale, and no VPN — the site is plain static files
+on GitHub Pages, and the rolling week (below) keeps it stocked ahead of you.
+Tailscale is only ever needed to *generate* on demand from the phone.
+
 ## Two ways to generate a day's articles
 
 **A. The button (on your Mac).** Open the local app at **http://localhost:8790**
@@ -41,13 +45,21 @@ in `serve.py` for a different one. Optional Gemini fallback: put
 
 ## A week at a time (and the agent that does it for you)
 
-`scripts/generate_week.py` writes a whole week, one day at a time, resting
-between days so a week's generation never lands on the Claude rate limit in one
-burst. It is idempotent — days that already have articles are skipped — so a
-failed or half-finished run is just run again.
+`scripts/generate_week.py` keeps a **rolling week in the bank** — today and the
+next six days — writing one day at a time and resting between days so a week's
+generation never lands on the Claude rate limit in one burst. It is idempotent —
+days that already have articles are skipped — so a failed or half-finished run
+is just run again.
+
+The window is anchored on *today*, not on Monday. Anchoring it to the calendar
+week meant the runway shrank as the week went on: by Saturday, "Mon–Sun of this
+week" is one day of articles left, so a Mac that was off over the weekend left
+the phone with nothing to read. Anchored on today, there is never less than a
+week ahead.
 
 ```
-python3 scripts/generate_week.py                     # this week, Mon–Sun
+python3 scripts/generate_week.py                     # today + next 6 days
+python3 scripts/generate_week.py --days 14           # bank a fortnight instead
 python3 scripts/generate_week.py --start 2026-08-10 --days 7
 python3 scripts/generate_week.py --gap 600           # rest 10 min between days
 python3 scripts/generate_week.py --dry-run           # say what it would do
@@ -131,11 +143,27 @@ personal collection until they reach the Mac.
 - **Past Days** lists every day you've generated.
 - Add to Home Screen (Safari → Share) for an app icon; File → Add to Dock on Mac.
 
+## Public, but not findable
+
+The site is public so it opens on any phone with no VPN, but it is kept out of
+search: `index.html` carries a `noindex` meta tag and `robots.txt` blocks the
+data directories outright plus every AI-training crawler.
+
+The page itself is deliberately left crawlable. A crawler has to be allowed to
+fetch it in order to read the `noindex` tag and drop the site — blocking the
+page in `robots.txt` would hide that tag and let a discovered URL linger as a
+bare, title-less search result.
+
+This is unlisted, not private: **anyone with the link can read it.** Nothing
+here is secret, so that is the intended trade. Real privacy would mean a login
+gate (Cloudflare Access) and giving up the current URL.
+
 ## Files
 
 | File | What it is |
 |---|---|
 | `index.html` | The whole reader app (no build step) |
+| `robots.txt` | Keeps the public site out of search engines |
 | `plan.json` | All 365 days of the SCC reading plan |
 | `content/YYYY-MM-DD.json` | One generated day (4 articles) |
 | `content/index.json` | List of generated days (drives Past Days) |

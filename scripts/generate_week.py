@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""Generate a whole week of Daily Manna articles, one day at a time, unhurried.
+"""Keep a rolling week of Daily Manna articles in the bank, one day at a time.
 
 Written to be run either by hand or from launchd. It is idempotent: days that
 already have articles are skipped, so a failed or half-finished run can simply
 be run again.
 
+It tops up a *rolling* window — today and the next six days — rather than the
+current calendar week. The calendar week was the old behaviour and it emptied
+out: by Saturday, "Mon–Sun of this week" is one day of runway, so a Mac that
+was off over the weekend left the phone with nothing to read. A window anchored
+on today never has less than a week ahead of it.
+
 Usage:
-    python3 scripts/generate_week.py                     # this week (Mon–Sun)
+    python3 scripts/generate_week.py                     # today + next 6 days
+    python3 scripts/generate_week.py --days 14           # bank a fortnight
     python3 scripts/generate_week.py --start 2026-08-10  # 7 days from a date
     python3 scripts/generate_week.py --start 2026-08-10 --days 3
     python3 scripts/generate_week.py --gap 300           # seconds between days
@@ -106,11 +113,7 @@ def claude_busy():
     return False
 
 
-def monday_of(d):
-    return d - dt.timedelta(days=d.weekday())
-
-
-def week_dates(start, days):
+def window_dates(start, days):
     return [(start + dt.timedelta(days=i)).isoformat() for i in range(days)]
 
 
@@ -169,8 +172,9 @@ def generate_day(iso):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--start", help="first date, YYYY-MM-DD (default: this Monday)")
-    ap.add_argument("--days", type=int, default=7)
+    ap.add_argument("--start", help="first date, YYYY-MM-DD (default: today)")
+    ap.add_argument("--days", type=int, default=7,
+                    help="size of the rolling window to keep filled (default: 7)")
     ap.add_argument("--gap", type=int, default=300, help="seconds to rest between days")
     ap.add_argument("--ignore-busy", action="store_true",
                     help="run even with an interactive claude session open")
@@ -179,8 +183,10 @@ def main():
                     help="never touch the repo directly; ask the Studio server instead")
     args = ap.parse_args()
 
-    start = dt.date.fromisoformat(args.start) if args.start else monday_of(dt.date.today())
-    dates = week_dates(start, args.days)
+    # Anchored on today, not on Monday: the point is a full week of runway at
+    # every moment, not a week that shrinks to nothing by Sunday night.
+    start = dt.date.fromisoformat(args.start) if args.start else dt.date.today()
+    dates = window_dates(start, args.days)
 
     # In --remote mode the server is the only way to see anything, so check it
     # before asking it which days exist.
@@ -193,7 +199,7 @@ def main():
         return 1
     todo = [d for d in dates if d not in have]
 
-    say(f"week starting {start} — {len(dates)} days, {len(todo)} missing")
+    say(f"rolling window {start} → {dates[-1]} — {len(dates)} days, {len(todo)} missing")
     if not todo:
         say("nothing to do")
         return 0

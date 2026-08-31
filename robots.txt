@@ -1,0 +1,49 @@
+# Daily Manna is a personal devotional reader. It stays public so it can be read
+# from any phone without a VPN, but it is not meant to be found by search.
+#
+# The page itself is deliberately left crawlable: index.html carries a
+# "noindex" meta tag, and a crawler has to be allowed to fetch the page in order
+# to read that tag and drop the site. Blocking it here instead would hide the
+# tag and let a discovered URL linger as a bare, title-less search result.
+# The data underneath carries no such tag, so that is what gets blocked.
+
+User-agent: *
+Disallow: /content/
+Disallow: /audio/
+Disallow: /plan.json
+Disallow: /loved.json
+Disallow: /used_illustrations.json
+Disallow: /studio/
+Disallow: /scripts/
+Disallow: /branding/
+
+# AI training crawlers: nothing at all, page included.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Applebot-Extended
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
