@@ -303,6 +303,8 @@
     body { font-size: 21px; }
     .art h1 { font-size: 2.5rem; }
   }
+  .week-wrap { margin-top: 1.4rem; }
+  .week-wrap .btn { width: 100%; }
   .build-stamp { text-align: center; font-size: .72rem; opacity: .35; margin-top: 1.6rem;
     letter-spacing: .04em; }
 </style>
@@ -318,12 +320,13 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "3";
+  const BUILD = "4";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
   let apiOk = false;         // true when the generator server is reachable
   let apiBase = "";          // "" = same-origin (on the Mac); tailnet URL when remote
+  let apiInfo = null;        // the generator's ping payload (window size, days missing)
   const TAILNET = "https://kriss-macbook-pro.taila0e65f.ts.net:8790"; // Mac over Tailscale
   function api(path) { return apiBase ? apiBase + "/" + path : path; }
   let remoteLoved = new Set(); // loved keys synced from the Mac via loved.json
@@ -444,6 +447,85 @@
   }
   function generateToday(btn, noteEl, force) { runGenerate(todayIso, btn, noteEl, force, () => renderHome()); }
 
+  // ---------- "next 7 days" ----------
+  // One tap fills every empty day in the rolling week. The work happens on the
+  // Mac, not here: the server walks the days itself, so the phone can lock and
+  // the tab can close mid-run without stopping it. This only appears when the
+  // generator is actually reachable — on the public site with the Mac asleep
+  // there is nothing it could do.
+  function weekBtnHtml() {
+    if (!apiOk) return "";
+    const missing = apiInfo && typeof apiInfo.missing === "number" ? apiInfo.missing : null;
+    const days = (apiInfo && apiInfo.windowDays) || 7;
+    const small = missing === null ? "today and the next " + (days - 1)
+      : missing === 0 ? "all " + days + " days are already written"
+      : missing + (missing === 1 ? " day" : " days") + " still empty";
+    return '<div class="week-wrap">' +
+      '<button class="btn btn-secondary" id="genweek"' + (missing === 0 ? " disabled" : "") + '>' +
+      "📅 Generate the next " + days + " days<small>" + small + "</small></button>" +
+      '<div class="gen-note" id="week-note"></div></div>';
+  }
+
+  function wireWeekBtn(afterDone) {
+    const btn = document.getElementById("genweek");
+    if (!btn) return;
+    const note = document.getElementById("week-note");
+    btn.onclick = () => {
+      const days = (apiInfo && apiInfo.windowDays) || 7;
+      if (!confirm("Write articles for every empty day in the next " + days +
+                   " days?\n\nThis runs on your Mac and can take a while — you can close this and come back.")) return;
+      btn.disabled = true;
+      btn.textContent = "Working…";
+      const poll = () => {
+        fetch(api("api/gen-status"), { cache: "no-store" }).then(r => r.json()).then(s => {
+          if (s.running) {
+            note.textContent = s.phase || "Working…";
+            return setTimeout(poll, 3000);
+          }
+          const res = s.result || {};
+          const madeCount = (res.generated || []).length;
+          note.textContent = res.failed && res.failed.length
+            ? "Wrote " + madeCount + "; couldn’t write " + res.failed.join(", ") + ". Tap to try again."
+            : "Done — wrote " + madeCount + (madeCount === 1 ? " day." : " days.");
+          btn.disabled = false;
+          btn.textContent = "📅 Generate the next " + ((apiInfo && apiInfo.windowDays) || 7) + " days";
+          // Pull the new days into the app so they are readable immediately.
+          Promise.all([loadGenerated(), pingRefresh()])
+            .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
+            .then(() => { if (afterDone) afterDone(); });
+        }).catch(() => setTimeout(poll, 4000));
+      };
+      fetch(api("api/generate-week"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: days })
+      }).then(r => r.json()).then(res => {
+        if (res.nothingToDo) {
+          note.textContent = res.message || "Nothing to write — every day is done.";
+          btn.disabled = false;
+          btn.textContent = "📅 Generate the next " + days + " days";
+          return;
+        }
+        if (!res.ok) {
+          note.textContent = "Couldn’t start: " + (res.error || "unknown");
+          btn.disabled = false;
+          btn.textContent = "📅 Generate the next " + days + " days";
+          return;
+        }
+        note.textContent = res.total ? "Writing " + res.total + " days…" : "Starting…";
+        poll();
+      }).catch(e => {
+        note.textContent = "Couldn’t reach the generator: " + e.message;
+        btn.disabled = false;
+        btn.textContent = "📅 Generate the next " + days + " days";
+      });
+    };
+  }
+
+  // Re-read the generator's ping so the button's "n days still empty" is current.
+  function pingRefresh() {
+    return pingUrl(apiBase).then(p => { if (p) apiInfo = p.info; }).catch(() => {});
+  }
+
   function readingsList(readings, heading) {
     return '<div class="readings-card"><h2>' + heading + '</h2><ul>' +
       READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + refLink(readings[k]) + "</span></li>" : "").join("") +
@@ -471,11 +553,13 @@
       "</div>" +
       '<button class="archive-link" id="browse">Browse by date ›</button>' +
       (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
+      weekBtnHtml() +
       '<p class="home-note">Fresh articles from today’s passages, every morning.</p>' +
       '<div class="build-stamp">build ' + BUILD + '</div>';
     document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
     document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
     document.getElementById("browse").onclick = renderCalendar;
+    wireWeekBtn(renderHome);
     const regen = document.getElementById("regen");
     if (regen) regen.onclick = () => {
       if (!confirm("Rewrite today’s 4 articles? This replaces the current set.")) return;
@@ -877,8 +961,10 @@
         : '<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>'
           + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
       '<button class="archive-link" id="browse">Browse by date ›</button>' +
+      weekBtnHtml() +
       '<div class="build-stamp">build ' + BUILD + '</div></div>';
     document.getElementById("browse").onclick = renderCalendar;
+    wireWeekBtn(goToday);
     const gen = document.getElementById("gen");
     if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
   }
@@ -900,6 +986,7 @@
     .then(() => ping().then(p => {
       if (!p) return;                       // no Mac reachable — read-only, as rendered
       apiBase = p.base;
+      apiInfo = p.info;
       const canGen = !!(p.info && p.info.canGenerate);
       if (canGen === apiOk) return;         // nothing on screen depends on this
       apiOk = canGen;

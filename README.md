@@ -24,6 +24,25 @@ the same thing interactively.
 
 Either way you then read on your phone at the live site.
 
+## The next-7-days button
+
+The home screen carries **📅 Generate the next 7 days**. One tap fills every
+empty day in the rolling window — today and the following six — and skips any
+day that already has articles, so it is safe to tap whenever.
+
+The work happens on the Mac, not in the browser. `POST /api/generate-week` walks
+the missing days server-side and each day is written and pushed on its own, so
+the phone can lock and the tab can close mid-run without stopping it, and an
+interrupted run still leaves every finished day live. The button shows the
+progress it polls back — `Day 2 of 4 (2026-09-02) — Writing the 4 articles…`.
+
+It only appears when the generator is actually reachable (the Mac, or the Mac
+over Tailscale). On the public site with the Mac asleep there is nothing it
+could do, so it stays hidden.
+
+**Restart `serve.py` after updating** — the endpoint it calls is new, and a
+Studio server started before this change does not have it.
+
 ## The Studio server (what powers the button)
 
 `studio/serve.py` runs on your Mac. It serves the app at http://localhost:8790
@@ -31,6 +50,8 @@ and adds the write-side API the public site can't have:
 
 - `POST /api/generate` → writes today's 4 articles (Claude; Gemini fallback if a
   key is set), commits, and pushes. Runs as a background job.
+- `POST /api/generate-week` → fills every empty day in the rolling 7-day window,
+  one at a time, pushing each as it lands. Also a background job.
 - `GET /api/gen-status` → progress for the button to poll.
 - `POST /api/love` → records a ♥ into `loved.json` (see Hearts).
 

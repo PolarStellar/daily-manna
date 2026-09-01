@@ -329,7 +329,8 @@ def _generate_core(iso, force, push, phase):
 
 # Background job: generation takes minutes, so it must never block the HTTP
 # request (that caused client timeouts + broken pipes). The app polls status.
-_job = {"running": False, "done": False, "phase": "", "result": None, "date": None}
+_job = {"running": False, "done": False, "phase": "", "result": None, "date": None,
+        "batch": None}
 _job_lock = threading.Lock()
 
 
@@ -338,7 +339,8 @@ def start_generation(iso=None, force=False, push=True):
     with _job_lock:
         if _job["running"]:
             return {"ok": True, "running": True, "date": _job["date"]}
-        _job.update(running=True, done=False, phase="Starting…", result=None, date=iso)
+        _job.update(running=True, done=False, phase="Starting…", result=None, date=iso,
+                    batch=None)
 
     def worker():
         def phase(p):
@@ -357,8 +359,82 @@ def start_generation(iso=None, force=False, push=True):
 
 def gen_status():
     with _job_lock:
-        return {"running": _job["running"], "done": _job["done"],
-                "phase": _job["phase"], "date": _job["date"], "result": _job["result"]}
+        st = {"running": _job["running"], "done": _job["done"],
+              "phase": _job["phase"], "date": _job["date"], "result": _job["result"]}
+        if _job.get("batch"):
+            st["batch"] = dict(_job["batch"])
+        return st
+
+
+# ---- the rolling week ----------------------------------------------------
+# The reader's "next 7 days" button. One HTTP call starts the whole run and it
+# keeps going on the Mac, so the phone can lock and the tab can close — a
+# per-day loop driven from the browser would die the moment either happened.
+
+WINDOW_DAYS = 7
+
+
+def window_days(n=WINDOW_DAYS, start=None):
+    """Today and the following n-1 days, as ISO strings."""
+    d0 = datetime.date.fromisoformat(start) if start else datetime.date.today()
+    return [(d0 + datetime.timedelta(days=i)).isoformat() for i in range(n)]
+
+
+def missing_days(n=WINDOW_DAYS, start=None):
+    """Which of those days have no articles yet, in order."""
+    return [d for d in window_days(n, start)
+            if not os.path.exists(os.path.join(CONTENT, d + ".json"))]
+
+
+def start_batch(n=WINDOW_DAYS, start=None, push=True):
+    """Fill every empty day in the rolling window, one at a time."""
+    todo = missing_days(n, start)
+    with _job_lock:
+        if _job["running"]:
+            return {"ok": True, "running": True, "date": _job["date"],
+                    "batch": dict(_job.get("batch") or {})}
+        if not todo:
+            return {"ok": True, "running": False, "nothingToDo": True,
+                    "message": f"All {n} days already have articles."}
+        _job.update(running=True, done=False, phase="Starting…", result=None,
+                    date=todo[0],
+                    batch={"total": len(todo), "index": 0, "day": todo[0],
+                           "days": list(todo), "generated": [], "failed": []})
+
+    def worker():
+        def phase(p):
+            with _job_lock:
+                _job["phase"] = p
+        generated, failed = [], []
+        for i, iso in enumerate(todo):
+            with _job_lock:
+                _job["date"] = iso
+                _job["batch"].update(index=i, day=iso)
+                _job["phase"] = f"Day {i + 1} of {len(todo)} ({iso}) — starting…"
+
+            def day_phase(pp, i=i, iso=iso):
+                phase(f"Day {i + 1} of {len(todo)} ({iso}) — {pp}")
+
+            try:
+                # Each day is written and pushed on its own, so an interrupted
+                # run still leaves every finished day live rather than losing
+                # the lot.
+                res = _generate_core(iso, force=False, push=push, phase=day_phase)
+            except Exception as e:
+                res = {"ok": False, "error": str(e)}
+            (generated if res.get("ok") else failed).append(iso)
+            with _job_lock:
+                _job["batch"]["generated"] = list(generated)
+                _job["batch"]["failed"] = list(failed)
+
+        with _job_lock:
+            _job.update(running=False, done=True, phase="",
+                        result={"ok": not failed, "batch": True,
+                                "generated": generated, "failed": failed,
+                                "error": ("couldn't write: " + ", ".join(failed)) if failed else None})
+
+    threading.Thread(target=worker, daemon=True).start()
+    return {"ok": True, "running": True, "date": todo[0], "total": len(todo), "days": todo}
 
 
 def rebuild_index():
@@ -425,7 +501,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path == "/api/ping":
             return self._send(200, json.dumps({"ok": True, "canGenerate": True,
-                                               "gemini": bool(_secret("GEMINI_API_KEY"))}))
+                                               "gemini": bool(_secret("GEMINI_API_KEY")),
+                                               "windowDays": WINDOW_DAYS,
+                                               "missing": len(missing_days())}))
         if path == "/api/loved":
             return self._send(200, json.dumps({"loved": load_loved()}))
         if path == "/api/gen-status":
@@ -445,6 +523,11 @@ class Handler(BaseHTTPRequestHandler):
             body = self._json_body()
             res = start_generation(body.get("date"), bool(body.get("force")),
                                    push=body.get("push", True))
+            return self._send(200, json.dumps(res))
+        if path == "/api/generate-week":
+            body = self._json_body()
+            res = start_batch(int(body.get("days") or WINDOW_DAYS),
+                              body.get("start"), push=body.get("push", True))
             return self._send(200, json.dumps(res))
         if path == "/api/love":
             body = self._json_body()
