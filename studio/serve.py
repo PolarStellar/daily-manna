@@ -13,6 +13,7 @@ change beyond the HOST constant.
 """
 import os
 import re
+import sys
 import json
 import html
 import shutil
@@ -322,11 +323,66 @@ def _generate_core(iso, force, push, phase):
     os.replace(tmp, out)
     record_illustrations(iso, articles)      # remember what we used so it's never reused
     rebuild_index()
+
+    # Narrate before publishing, so the day goes live with its audio in the
+    # same commit rather than appearing silent and gaining a Listen player
+    # some minutes later.
+    narrated = narrate_day(iso, articles, phase)
+
     published = False
     if push:
         phase("Publishing…")
         published = git_publish(iso)
-    return {"ok": True, "date": iso, "articles": articles, "published": published}
+    return {"ok": True, "date": iso, "articles": articles, "published": published,
+            "narrated": narrated}
+
+
+def narrate_day(iso, articles, phase):
+    """Render the day's articles to MP3. Returns the ranks narrated.
+
+    Deliberately non-fatal: a day with articles and no audio is still a good
+    day, so any failure here is logged and skipped rather than failing the
+    generation that already succeeded. Missing key = quietly no audio, which is
+    what happens on a machine that was never set up for narration.
+    """
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import generate_audio as ga
+    except Exception as e:
+        print(f"[audio] cannot load the renderer: {e}", flush=True)
+        return []
+    try:
+        key = ga.api_key()
+    except SystemExit:
+        print("[audio] no ELEVENLABS_API_KEY — skipping narration", flush=True)
+        return []
+
+    try:
+        vid, vname = ga.voice_id()
+    except SystemExit as e:
+        print(f"[audio] {e}", flush=True)
+        return []
+
+    done = []
+    for a in sorted(articles, key=lambda x: x["rank"]):
+        dest = ga.AUDIO / iso / f"{a['rank']}.mp3"
+        if dest.exists():
+            done.append(a["rank"])
+            continue
+        phase(f"Narrating article {a['rank']} of {len(articles)}…")
+        try:
+            ga.render(key, vid, a, dest)
+            done.append(a["rank"])
+            # Rewrite after each file so an interrupted run still leaves
+            # everything already rendered playable.
+            ga.write_index()
+        except Exception as e:
+            print(f"[audio] {iso} #{a['rank']} failed: {e}", flush=True)
+    try:
+        ga.write_index()
+    except Exception:
+        pass
+    return done
 
 
 # Background job: generation takes minutes, so it must never block the HTTP
@@ -450,7 +506,10 @@ def git_publish(iso):
     def git(*args):
         return subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
     try:
-        git("add", "content/", "loved.json", "used_illustrations.json")
+        # audio/ is in here because narration is now part of generating a day.
+        # Without it the MP3s stayed on the Mac and the phone showed no Listen
+        # player, which is the whole point of rendering them.
+        git("add", "content/", "audio/", "loved.json", "used_illustrations.json")
         c = git("-c", "user.name=Kris Salta", "-c", "user.email=johns@mercola.com",
                 "commit", "-m", f"Daily Manna: articles for {iso}")
         if c.returncode != 0 and "nothing to commit" not in (c.stdout + c.stderr):

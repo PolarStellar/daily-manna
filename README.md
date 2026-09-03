@@ -110,6 +110,15 @@ Progress and back-offs are logged to `logs/generate_week.log` (gitignored).
 
 ## Listening (narrated articles)
 
+**Every generated day is narrated automatically.** Writing a day now renders its
+4 articles to MP3 before publishing, so a day goes live with its audio in the
+same commit instead of showing up silent and growing a Listen player later.
+`audio/` is staged by `git_publish`, so the narration reaches the phone too.
+
+Narration is deliberately non-fatal: if it fails, or no ElevenLabs key is
+configured, the day still publishes with its articles and simply has no Listen
+player. Articles that already have an MP3 are never re-rendered.
+
 Any article with a narrated MP3 gets a small **Listen** player under the dek:
 play/pause, a scrubbable progress bar, and a speed toggle (1× / 1.25× / 1.5× /
 0.85×). It remembers where you stopped, only one article plays at a time,
@@ -127,19 +136,35 @@ python3 scripts/audition_voices.py            # latest day, article 1 → audio/
 VOICES=rachel,sarah python3 scripts/audition_voices.py    # try the swap-ins
 ```
 
-Then narrate for real (default voice `charlotte`, model `eleven_v3`):
+To narrate by hand — a backfill, or a day whose audio failed (default voice
+`matilda`, model `eleven_v3`):
 
 ```
 python3 scripts/generate_audio.py             # latest day, all 4 articles
 VOICE=lily python3 scripts/generate_audio.py 2026-08-08
-python3 scripts/generate_audio.py --all       # backfill every day missing audio
+python3 scripts/generate_audio.py --from 2026-08-15 --to 2026-09-03   # a range
+python3 scripts/generate_audio.py --all       # every day ever written — hundreds of MB
 ```
+
+`--all` means *every* day in `content/`, which is months of articles; prefer
+`--from`/`--to`. The index is rewritten after every single file, so an
+interrupted run still leaves everything already rendered playable.
 
 Existing files are skipped; `FORCE=1` re-renders. `audio/auditions/` is
 gitignored, the real `audio/<date>/` is not.
 
 Needs an ElevenLabs key — `{"ELEVENLABS_API_KEY": "…"}` in `studio/.secrets`
-(gitignored), or `ELEVENLABS_API_KEY` in the environment.
+(gitignored), or `ELEVENLABS_API_KEY` in the environment. If you already have
+one in the MCS podcast pipeline's `.env`, copy it across without retyping it:
+
+```
+python3 scripts/import_eleven_key.py
+```
+
+**Audio needs the Studio server, not just the files.** `serve.py` serves MP3s
+with byte-range support (`206 Partial Content`); Safari will not start playback
+without it and no browser can seek without it. A server started before that
+existed will show a Listen player that does nothing — restart it.
 
 **Watch the repo size.** At the default `mp3_44100_64` a 7-minute article is
 ~3 MB, so a full day is ~12 MB and a month is ~350 MB. If that gets heavy,
