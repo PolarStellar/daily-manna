@@ -329,12 +329,60 @@ def _generate_core(iso, force, push, phase):
     # some minutes later.
     narrated = narrate_day(iso, articles, phase)
 
+    # Age out old narration in the same breath. Audio is the only thing here
+    # that grows by megabytes a day, and GitHub Pages stops serving a site over
+    # 1 GB, so without this the reader eventually breaks for everyone. Articles
+    # are never touched — only the MP3s age out, and any day can be re-narrated
+    # later with generate_audio.py.
+    prune_audio(phase)
+
     published = False
     if push:
         phase("Publishing…")
         published = git_publish(iso)
     return {"ok": True, "date": iso, "articles": articles, "published": published,
             "narrated": narrated}
+
+
+# Narration older than this is deleted on each generation. 30 days means a day
+# written today keeps its audio for a month; on Sep 3 that drops Aug 3 and older.
+KEEP_AUDIO_DAYS = 30
+
+
+def prune_audio(phase=None):
+    """Delete narration older than KEEP_AUDIO_DAYS. Returns the days dropped.
+
+    Non-fatal like narration: failing to tidy up must never fail a day that was
+    written successfully.
+    """
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import generate_audio as ga
+    except Exception as e:
+        print(f"[audio] cannot load the renderer to prune: {e}", flush=True)
+        return []
+    cutoff = (datetime.date.today() - datetime.timedelta(days=KEEP_AUDIO_DAYS)).isoformat()
+    dropped = []
+    try:
+        for day_dir in sorted(ga.AUDIO.glob("20*")):
+            if not day_dir.is_dir() or day_dir.name >= cutoff:
+                continue
+            for mp3 in day_dir.glob("*.mp3"):
+                mp3.unlink()
+            try:
+                day_dir.rmdir()
+            except OSError:
+                pass            # something else in there — leave the folder
+            dropped.append(day_dir.name)
+        if dropped:
+            if phase:
+                phase(f"Removing narration older than {cutoff}…")
+            ga.write_index()
+            print(f"[audio] pruned {len(dropped)} day(s) before {cutoff}: "
+                  + ", ".join(dropped), flush=True)
+    except Exception as e:
+        print(f"[audio] prune failed: {e}", flush=True)
+    return dropped
 
 
 def narrate_day(iso, articles, phase):

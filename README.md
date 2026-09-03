@@ -166,6 +166,23 @@ with byte-range support (`206 Partial Content`); Safari will not start playback
 without it and no browser can seek without it. A server started before that
 existed will show a Listen player that does nothing — restart it.
 
+**Old narration ages out automatically.** Every generation deletes audio older
+than 30 days (`KEEP_AUDIO_DAYS` in `serve.py`) — on Sep 3 that drops Aug 3 and
+older. Articles are never touched, only the MP3s, and any day can be re-narrated
+later with `generate_audio.py --from … --to …`. By hand:
+
+```
+python3 scripts/generate_audio.py --prune         # keep the last 30 days
+python3 scripts/generate_audio.py --prune 60      # keep the last 60
+```
+
+This keeps the **published site** under the GitHub Pages 1 GB limit, which is
+the constraint that would otherwise break the reader for good. It does **not**
+shrink `.git`: every MP3 ever committed stays in history forever, so the clone
+grows by roughly 360 MB a month whatever gets pruned. If that becomes a problem
+the fix is to stop versioning audio in git — host it outside the repo — not to
+prune harder.
+
 **Watch the repo size.** At the default `mp3_44100_64` a 7-minute article is
 ~3 MB, so a full day is ~12 MB and a month is ~350 MB. If that gets heavy,
 set `ELEVEN_FORMAT=mp3_22050_32` (about half), narrate only article 1 each day,
