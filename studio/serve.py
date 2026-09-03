@@ -334,7 +334,7 @@ def _generate_core(iso, force, push, phase):
     # 1 GB, so without this the reader eventually breaks for everyone. Articles
     # are never touched — only the MP3s age out, and any day can be re-narrated
     # later with generate_audio.py.
-    prune_audio(phase)
+    publish_audio(iso, phase)
 
     published = False
     if push:
@@ -344,45 +344,46 @@ def _generate_core(iso, force, push, phase):
             "narrated": narrated}
 
 
-# Narration older than this is deleted on each generation. 30 days means a day
-# written today keeps its audio for a month; on Sep 3 that drops Aug 3 and older.
+# Narration older than this is deleted from GitHub Releases on each generation.
+# 30 days means a day written today keeps its audio for a month; on Sep 3 that
+# drops Aug 3 and older. Articles are never affected.
 KEEP_AUDIO_DAYS = 30
 
 
-def prune_audio(phase=None):
-    """Delete narration older than KEEP_AUDIO_DAYS. Returns the days dropped.
+def publish_audio(iso, phase=None):
+    """Upload the day's narration to its monthly release, then age out old months.
 
-    Non-fatal like narration: failing to tidy up must never fail a day that was
-    written successfully.
+    The MP3s are deliberately not committed: in the tree they stayed in git
+    history forever, growing the clone ~360 MB a month, and GitHub Pages stops
+    serving a site over 1 GB. Uploaded assets can actually be deleted.
+
+    Local copies are removed only for files the release confirms it has, so a
+    failed upload leaves the audio on the Mac to retry rather than losing it.
+    Non-fatal throughout: a day with articles and no narration is still a good
+    day, and it must never fail a generation that already succeeded.
     """
     try:
         sys.path.insert(0, os.path.join(ROOT, "scripts"))
-        import generate_audio as ga
+        import audio_release as ar
     except Exception as e:
-        print(f"[audio] cannot load the renderer to prune: {e}", flush=True)
-        return []
-    cutoff = (datetime.date.today() - datetime.timedelta(days=KEEP_AUDIO_DAYS)).isoformat()
-    dropped = []
+        print(f"[audio] cannot load the uploader: {e}", flush=True)
+        return {"uploaded": 0, "pruned": []}
+
+    uploaded, pruned = 0, []
     try:
-        for day_dir in sorted(ga.AUDIO.glob("20*")):
-            if not day_dir.is_dir() or day_dir.name >= cutoff:
-                continue
-            for mp3 in day_dir.glob("*.mp3"):
-                mp3.unlink()
-            try:
-                day_dir.rmdir()
-            except OSError:
-                pass            # something else in there — leave the folder
-            dropped.append(day_dir.name)
-        if dropped:
+        if (ar.AUDIO / iso).is_dir():
             if phase:
-                phase(f"Removing narration older than {cutoff}…")
-            ga.write_index()
-            print(f"[audio] pruned {len(dropped)} day(s) before {cutoff}: "
-                  + ", ".join(dropped), flush=True)
+                phase("Uploading narration…")
+            uploaded = ar.upload([iso], delete_local=True)
+    except Exception as e:
+        print(f"[audio] upload failed for {iso}: {e}", flush=True)
+    try:
+        if phase:
+            phase("Tidying old narration…")
+        pruned = ar.prune(KEEP_AUDIO_DAYS)
     except Exception as e:
         print(f"[audio] prune failed: {e}", flush=True)
-    return dropped
+    return {"uploaded": uploaded, "pruned": pruned}
 
 
 def narrate_day(iso, articles, phase):
@@ -557,7 +558,10 @@ def git_publish(iso):
         # audio/ is in here because narration is now part of generating a day.
         # Without it the MP3s stayed on the Mac and the phone showed no Listen
         # player, which is the whole point of rendering them.
-        git("add", "content/", "audio/", "loved.json", "used_illustrations.json")
+        # audio/index.json only — the MP3s live in GitHub Releases now, so the
+        # tree carries the ~1 KB manifest and none of the megabytes.
+        git("add", "content/", "audio/index.json", "loved.json",
+            "used_illustrations.json")
         c = git("-c", "user.name=Kris Salta", "-c", "user.email=johns@mercola.com",
                 "commit", "-m", f"Daily Manna: articles for {iso}")
         if c.returncode != 0 and "nothing to commit" not in (c.stdout + c.stderr):

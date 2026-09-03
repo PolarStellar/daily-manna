@@ -320,7 +320,7 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "4";
+  const BUILD = "5";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -416,6 +416,16 @@
   }
   function hasAudio(isoStr, rank) {
     return (audioIndex[isoStr] || []).indexOf(rank) !== -1;
+  }
+  // Narration lives in GitHub Releases, not the git tree — MP3s were the only
+  // thing here growing by megabytes a day, and in-tree they stayed in history
+  // forever while Pages refuses to serve a site over 1 GB. One release per
+  // month, assets named by date and rank, so the URL is derivable from both
+  // and needs no lookup table. Release downloads support byte ranges, which is
+  // what lets Safari play and the scrub bar seek.
+  const AUDIO_BASE = "https://github.com/PolarStellar/daily-manna/releases/download";
+  function audioUrl(isoStr, rank) {
+    return AUDIO_BASE + "/audio-" + isoStr.slice(0, 7) + "/" + isoStr + "-" + rank + ".mp3";
   }
   function goToday() {
     if (todayData) renderHome(); else renderMissing(plan[todayIso.slice(5)]);
@@ -757,7 +767,7 @@
       // first thing you see, and it has to stay reachable on an article you've
       // already read (those render collapsed, which hides .art-body).
       (hasAudio(isoStr, a.rank)
-        ? '<div class="listen" data-src="audio/' + isoStr + "/" + a.rank + '.mp3">' +
+        ? '<div class="listen" data-src="' + audioUrl(isoStr, a.rank) + '">' +
           '<button class="listen-play" aria-label="Listen to this article">▶</button>' +
           '<div class="listen-mid"><div class="listen-bar"><div class="listen-fill"></div></div>' +
           '<div class="listen-time"><span class="listen-label">Listen to this article</span>' +

@@ -4,3 +4,8 @@ studio/.secrets
 audio/auditions/
 logs/
 __pycache__/
+
+# Narration lives in GitHub Releases, not in git — in the tree every MP3 ever
+# rendered stayed in history forever. audio/index.json (the manifest the reader
+# needs) is a file directly in audio/, so it is not matched by this.
+audio/20*/

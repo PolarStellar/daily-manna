@@ -166,22 +166,43 @@ with byte-range support (`206 Partial Content`); Safari will not start playback
 without it and no browser can seek without it. A server started before that
 existed will show a Listen player that does nothing — restart it.
 
-**Old narration ages out automatically.** Every generation deletes audio older
-than 30 days (`KEEP_AUDIO_DAYS` in `serve.py`) — on Sep 3 that drops Aug 3 and
-older. Articles are never touched, only the MP3s, and any day can be re-narrated
-later with `generate_audio.py --from … --to …`. By hand:
+**Narration is hosted in GitHub Releases, not in git.** One release per month
+(tag `audio-YYYY-MM`), assets named `YYYY-MM-DD-<rank>.mp3`, so the reader
+derives the URL from a date and needs no lookup. `audio/index.json` stays in the
+tree — it is about a kilobyte and it is what tells the reader which articles have
+narration — and it is rebuilt *from* GitHub, so the release is the single source
+of truth and a half-finished upload self-corrects.
+
+This is the fix for the real problem: in-tree, every MP3 ever rendered stayed in
+git history forever, so the clone grew ~360 MB a month no matter what was pruned,
+and GitHub Pages refuses to serve a site over 1 GB. Release assets sit outside
+the repo, cost nothing, are served with byte-range support, and can actually be
+deleted.
 
 ```
-python3 scripts/generate_audio.py --prune         # keep the last 30 days
-python3 scripts/generate_audio.py --prune 60      # keep the last 60
+python3 scripts/audio_release.py --upload                  # every local day
+python3 scripts/audio_release.py --upload 2026-09-03        # one day
+python3 scripts/audio_release.py --upload --delete-local    # upload, then free the disk
+python3 scripts/audio_release.py --index                    # rebuild index.json from GitHub
+python3 scripts/audio_release.py --prune 30                 # delete assets older than 30 days
+python3 scripts/audio_release.py --verify                   # check every indexed file streams
 ```
 
-This keeps the **published site** under the GitHub Pages 1 GB limit, which is
-the constraint that would otherwise break the reader for good. It does **not**
-shrink `.git`: every MP3 ever committed stays in history forever, so the clone
-grows by roughly 360 MB a month whatever gets pruned. If that becomes a problem
-the fix is to stop versioning audio in git — host it outside the repo — not to
-prune harder.
+Local MP3s are deleted only for files the release confirms it holds, so a failed
+upload leaves them on the Mac to retry rather than losing them.
+
+**The one cost: audio no longer plays offline.** The service worker ignores
+cross-origin requests, so narration needs a connection. Articles remain readable
+offline exactly as before.
+
+**Old narration ages out automatically.** Every generation deletes release assets
+older than 30 days (`KEEP_AUDIO_DAYS` in `serve.py`) — on Sep 3 that drops Aug 3
+and older. Articles are never touched, only the MP3s, and any day can be
+re-narrated later with `generate_audio.py --from … --to …` followed by
+`audio_release.py --upload`.
+
+Because the assets live outside the repo, deleting them genuinely reclaims the
+space — unlike the in-tree version, where history kept every byte.
 
 **Watch the repo size.** At the default `mp3_44100_64` a 7-minute article is
 ~3 MB, so a full day is ~12 MB and a month is ~350 MB. If that gets heavy,
@@ -227,6 +248,8 @@ gate (Cloudflare Access) and giving up the current URL.
 |---|---|
 | `index.html` | The whole reader app (no build step) |
 | `robots.txt` | Keeps the public site out of search engines |
+| `scripts/audio_release.py` | Uploads/prunes narration in GitHub Releases |
+| `audio/index.json` | Which articles have narration (the MP3s are not in git) |
 | `plan.json` | All 365 days of the SCC reading plan |
 | `content/YYYY-MM-DD.json` | One generated day (4 articles) |
 | `content/index.json` | List of generated days (drives Past Days) |

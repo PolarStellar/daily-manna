@@ -5,7 +5,7 @@
 // that is not the current name, so moving the version is what forces a phone
 // holding an old app to throw it away. Leaving it pinned at v1 meant iPhones
 // kept serving a stale index.html long after a fix had shipped.
-const CACHE = "daily-manna-v4";
+const CACHE = "daily-manna-v5";
 const SHELL = ["./", "./index.html", "./plan.json", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -26,7 +26,11 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== "GET") return;                  // never touch love/generate POSTs
-  if (url.origin !== self.location.origin) return;   // ignore the Mac/tailnet API (cross-origin)
+  // Cross-origin: the Mac/tailnet API, and now narration served from GitHub
+  // Releases. Neither is cached — which does mean audio needs a connection,
+  // a deliberate trade for keeping megabytes of MP3 out of the git history.
+  // Articles stay readable offline exactly as before.
+  if (url.origin !== self.location.origin) return;
   if (url.pathname.includes("/api/")) return;        // never cache the generator API
   if (req.headers.has("range")) return;              // audio seeks — 206s can't be cached
   e.respondWith(
