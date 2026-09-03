@@ -96,7 +96,9 @@ def record_illustrations(iso, articles):
 
 STATIC_TYPES = {".html": "text/html; charset=utf-8", ".json": "application/json",
                 ".webmanifest": "application/manifest+json", ".png": "image/png",
-                ".svg": "image/svg+xml", ".css": "text/css", ".js": "text/javascript"}
+                ".svg": "image/svg+xml", ".css": "text/css", ".js": "text/javascript",
+                ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav",
+                ".ico": "image/x-icon"}
 
 
 # ----------------------------- data helpers -----------------------------
@@ -479,6 +481,67 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass  # client hung up (e.g. long request abandoned) — harmless
 
+    def _send_media(self, full, ctype):
+        """Serve audio with byte-range support.
+
+        The Listen player needs this and the previous code did not have it: any
+        request, Range header or not, got a 200 with the whole file. Safari
+        refuses to start playback at all without a 206, so narrated articles
+        simply never played, and nowhere could the scrub bar seek. Audio also
+        must not be sent no-store — that re-downloaded megabytes on every
+        replay.
+        """
+        size = os.path.getsize(full)
+        rng = self.headers.get("Range", "")
+        start, end = 0, size - 1
+        partial = False
+        m = re.match(r"bytes=(\d*)-(\d*)\s*$", rng)
+        if m:
+            g1, g2 = m.group(1), m.group(2)
+            if g1 == "" and g2 == "":
+                m = None                       # "bytes=-" is meaningless
+            elif g1 == "":
+                start = max(0, size - int(g2))  # suffix range: last N bytes
+                partial = True
+            else:
+                start = int(g1)
+                if g2:
+                    end = min(int(g2), size - 1)
+                partial = True
+        if partial and (start >= size or start > end):
+            try:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self._cors()
+                self.end_headers()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        length = end - start + 1
+        try:
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(length))
+            self.send_header("Accept-Ranges", "bytes")
+            if partial:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            # Rendered audio for a given day never changes, so let the browser
+            # keep it instead of re-fetching megabytes each play.
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self._cors()
+            self.end_headers()
+            with open(full, "rb") as f:
+                f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):
+            pass    # player seeked away or closed mid-stream — normal
+
     def do_OPTIONS(self):
         try:
             self.send_response(204)
@@ -514,6 +577,8 @@ class Handler(BaseHTTPRequestHandler):
         if not full.startswith(ROOT) or not os.path.isfile(full):
             return self._send(404, "not found", "text/plain")
         ctype = STATIC_TYPES.get(os.path.splitext(full)[1], "application/octet-stream")
+        if ctype.startswith("audio/"):
+            return self._send_media(full, ctype)
         with open(full, "rb") as f:
             self._send(200, f.read(), ctype)
 
