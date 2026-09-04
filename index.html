@@ -320,7 +320,7 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "6";
+  const BUILD = "7";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -531,6 +531,71 @@
     };
   }
 
+  // Restarting the Mac's server used to mean walking to the Mac — useless when
+  // the reason to restart is something noticed on the phone. This pulls the
+  // latest code and re-execs it. The server refuses to restart if the new code
+  // will not compile, so this cannot strand the phone with nothing listening.
+  function restartHtml() {
+    if (!apiOk) return "";
+    return '<div class="week-wrap"><button class="archive-link" id="restart">' +
+      "↻ Update &amp; restart the Mac server</button>" +
+      '<div class="gen-note" id="restart-note"></div></div>';
+  }
+
+  function wireRestart() {
+    const btn = document.getElementById("restart");
+    if (!btn) return;
+    const note = document.getElementById("restart-note");
+    btn.onclick = () => {
+      if (!confirm("Pull the latest code and restart the Mac's server?")) return;
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = "Restarting…";
+      fetch(api("api/restart"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pull: true })
+      }).then(r => r.json()).then(res => {
+        if (!res.ok) {
+          note.textContent = res.error || "Couldn’t restart.";
+          btn.disabled = false; btn.textContent = label;
+          return;
+        }
+        note.textContent = "Restarting" + (res.warning ? " (" + res.warning + ")" : "") + "…";
+        // Wait for it to come back rather than claiming success immediately.
+        let tries = 0;
+        const wait = () => {
+          tries++;
+          pingUrl(apiBase).then(p => {
+            if (p) {
+              apiInfo = p.info;
+              note.textContent = "Back up ✓" + (res.pulled ? " — " + res.pulled.split("\n")[0] : "");
+              btn.disabled = false; btn.textContent = label;
+            } else if (tries < 15) {
+              setTimeout(wait, 1500);
+            } else {
+              note.textContent = "It hasn’t come back — check the Mac.";
+              btn.disabled = false; btn.textContent = label;
+            }
+          });
+        };
+        setTimeout(wait, 2000);
+      }).catch(e => {
+        // A dropped connection mid-restart is expected; keep polling.
+        note.textContent = "Restarting…";
+        let tries = 0;
+        const wait = () => {
+          tries++;
+          pingUrl(apiBase).then(p => {
+            if (p) { apiInfo = p.info; note.textContent = "Back up ✓"; btn.disabled = false; btn.textContent = label; }
+            else if (tries < 15) setTimeout(wait, 1500);
+            else { note.textContent = "It hasn’t come back — check the Mac."; btn.disabled = false; btn.textContent = label; }
+          });
+        };
+        setTimeout(wait, 2000);
+      });
+    };
+  }
+
   // Re-read the generator's ping so the button's "n days still empty" is current.
   function pingRefresh() {
     return pingUrl(apiBase).then(p => { if (p) apiInfo = p.info; }).catch(() => {});
@@ -564,12 +629,14 @@
       '<button class="archive-link" id="browse">Browse by date ›</button>' +
       (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
       weekBtnHtml() +
+      restartHtml() +
       '<p class="home-note">Fresh articles from today’s passages, every morning.</p>' +
       '<div class="build-stamp">build ' + BUILD + '</div>';
     document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
     document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
     document.getElementById("browse").onclick = renderCalendar;
     wireWeekBtn(renderHome);
+    wireRestart();
     const regen = document.getElementById("regen");
     if (regen) regen.onclick = () => {
       if (!confirm("Rewrite today’s 4 articles? This replaces the current set.")) return;
@@ -985,9 +1052,11 @@
           + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
       '<button class="archive-link" id="browse">Browse by date ›</button>' +
       weekBtnHtml() +
+      restartHtml() +
       '<div class="build-stamp">build ' + BUILD + '</div></div>';
     document.getElementById("browse").onclick = renderCalendar;
     wireWeekBtn(goToday);
+    wireRestart();
     const gen = document.getElementById("gen");
     if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
   }

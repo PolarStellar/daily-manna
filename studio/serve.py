@@ -571,6 +571,44 @@ def git_publish(iso):
         return False
 
 
+def prepare_restart(pull=False):
+    """Check it is safe to restart, optionally pulling first.
+
+    Refusing on a syntax error is the whole point: the server is the only way
+    back in from the phone, so it must never exec into a file that cannot run.
+    """
+    out = {"ok": True, "pulled": None, "warning": None}
+    me = os.path.abspath(__file__)
+    if pull:
+        r = subprocess.run(["git", "-C", ROOT, "pull", "--ff-only"],
+                           capture_output=True, text=True, timeout=120)
+        out["pulled"] = (r.stdout + r.stderr).strip()[-300:]
+        if r.returncode != 0:
+            # A failed pull is not fatal — restart the code already on disk.
+            out["warning"] = "pull failed; restarting the current code"
+    try:
+        # Builtin compile() checks syntax without writing anything. py_compile
+        # was wrong here: pointing cfile at /dev/null raises, so every restart
+        # would have been refused.
+        with open(me) as fh:
+            compile(fh.read(), me, "exec")
+    except Exception as e:
+        return {"ok": False, "error": f"serve.py will not compile, refusing to "
+                                      f"restart: {str(e)[:300]}",
+                "pulled": out["pulled"]}
+    return out
+
+
+def do_restart():
+    me = os.path.abspath(__file__)
+    print("restarting on request…", flush=True)
+    try:
+        sys.stdout.flush()
+        os.execv(sys.executable, [sys.executable, me])
+    except Exception as e:
+        print(f"restart failed: {e}", flush=True)
+
+
 # ----------------------------- HTTP -----------------------------
 class Handler(BaseHTTPRequestHandler):
     def _cors(self):
@@ -705,6 +743,22 @@ class Handler(BaseHTTPRequestHandler):
             res = start_batch(int(body.get("days") or WINDOW_DAYS),
                               body.get("start"), push=body.get("push", True))
             return self._send(200, json.dumps(res))
+        if path == "/api/restart":
+            # Restarting used to mean walking to the Mac, which is useless when
+            # the reason to restart is something noticed on the phone.
+            #
+            # The file is compile-checked first and the restart refused if it
+            # fails: a phone-triggered restart that dies leaves no way back in
+            # except the Mac, which is exactly the situation this is meant to
+            # avoid. Optionally pulls first, so a fix can be deployed from bed.
+            body = self._json_body()
+            res = prepare_restart(pull=bool(body.get("pull")))
+            if not res["ok"]:
+                return self._send(200, json.dumps(res))
+            self._send(200, json.dumps(res))
+            # Reply first — exec replaces this process and the socket with it.
+            threading.Timer(0.6, do_restart).start()
+            return
         if path == "/api/love":
             body = self._json_body()
             key, loved = body.get("key"), bool(body.get("loved"))

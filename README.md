@@ -40,6 +40,13 @@ It only appears when the generator is actually reachable (the Mac, or the Mac
 over Tailscale). On the public site with the Mac asleep there is nothing it
 could do, so it stays hidden.
 
+**Restarting from the phone.** The home screen carries **↻ Update & restart the
+Mac server** whenever the generator is reachable. It pulls the latest code and
+re-execs `serve.py`, then waits for it to answer again before saying so. The
+server compile-checks itself first and refuses to restart if the new code will
+not run — otherwise a restart from the phone could leave nothing listening, with
+the Mac the only way back in.
+
 **Restart `serve.py` after updating** — the endpoint it calls is new, and a
 Studio server started before this change does not have it.
 

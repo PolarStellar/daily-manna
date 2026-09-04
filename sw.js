@@ -5,7 +5,7 @@
 // that is not the current name, so moving the version is what forces a phone
 // holding an old app to throw it away. Leaving it pinned at v1 meant iPhones
 // kept serving a stale index.html long after a fix had shipped.
-const CACHE = "daily-manna-v6";
+const CACHE = "daily-manna-v7";
 const SHELL = ["./", "./index.html", "./plan.json", "./manifest.json", "./icon.png"];
 
 self.addEventListener("install", (e) => {
