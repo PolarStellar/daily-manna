@@ -320,7 +320,7 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "5";
+  const BUILD = "6";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -847,8 +847,21 @@
         label.textContent = "Finished";
       });
       audio.addEventListener("error", () => {
-        label.textContent = "Audio unavailable";
-        playBtn.disabled = true;
+        // Nearly always a stale app asking for a path that has since moved.
+        // selfUpdate() should have caught it; say so plainly if it did not.
+        label.textContent = "Audio didn’t load — tap to refresh the app";
+        playBtn.disabled = false;
+        playBtn.textContent = "↻";
+        playBtn.onclick = () => {
+          try { sessionStorage.removeItem("dm-updated-to"); } catch (e) {}
+          const jobs = [];
+          if (window.caches) jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).catch(() => {}));
+          if (navigator.serviceWorker) {
+            jobs.push(navigator.serviceWorker.getRegistrations()
+              .then(rs => Promise.all(rs.map(r => r.unregister()))).catch(() => {}));
+          }
+          Promise.all(jobs).then(() => location.reload());
+        };
       });
       return audio;
     };
@@ -984,6 +997,38 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
+  // A phone can hold an old index.html indefinitely, and twice now a shipped
+  // fix never reached the device — most recently when narration moved out of
+  // the git tree and an old build kept asking for a path that no longer exists,
+  // showing "Audio unavailable" on articles that were perfectly fine. So the
+  // app checks whether it is stale and replaces itself, rather than relying on
+  // anyone knowing to clear a cache.
+  function selfUpdate() {
+    return fetch("index.html?bust=" + Date.now(), { cache: "reload" })
+      .then(r => (r.ok ? r.text() : null))
+      .then(t => {
+        if (!t) return;
+        const m = t.match(/const BUILD = "([^"]+)"/);
+        if (!m || m[1] === BUILD) return;
+        // One attempt per build per tab: if the reload somehow lands on the
+        // same old copy, do not spin.
+        try {
+          if (sessionStorage.getItem("dm-updated-to") === m[1]) return;
+          sessionStorage.setItem("dm-updated-to", m[1]);
+        } catch (e) { return; }
+        const jobs = [];
+        if (window.caches) {
+          jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).catch(() => {}));
+        }
+        if (navigator.serviceWorker) {
+          jobs.push(navigator.serviceWorker.getRegistrations()
+            .then(rs => Promise.all(rs.map(r => r.unregister()))).catch(() => {}));
+        }
+        return Promise.all(jobs).then(() => location.reload());
+      })
+      .catch(() => {});
+  }
+
   // Reading must never wait on the generator. Finding the Mac means a same-origin
   // probe plus, off the Mac, a Tailscale URL that is simply unreachable without
   // the VPN — up to ~3s of nothing on the public site, which read like the site
@@ -993,6 +1038,7 @@
   Promise.all([loadRemoteLoved(), loadPlan(), loadGenerated(), loadAudioIndex()])
     .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
     .then(() => goToday())
+    .then(() => selfUpdate())
     .then(() => ping().then(p => {
       if (!p) return;                       // no Mac reachable — read-only, as rendered
       apiBase = p.base;
