@@ -351,39 +351,39 @@ KEEP_AUDIO_DAYS = 30
 
 
 def publish_audio(iso, phase=None):
-    """Upload the day's narration to its monthly release, then age out old months.
+    """Move the day's narration into the audio repo and push it, then age out old days.
 
-    The MP3s are deliberately not committed: in the tree they stayed in git
+    The MP3s are deliberately not in this repo: in-tree they stayed in git
     history forever, growing the clone ~360 MB a month, and GitHub Pages stops
-    serving a site over 1 GB. Uploaded assets can actually be deleted.
+    serving a site over 1 GB. They go to daily-manna-audio, whose own Pages site
+    serves them with an audio Content-Type and byte ranges — the two things
+    Safari needs, and the two things GitHub Releases could not provide.
 
-    Local copies are removed only for files the release confirms it has, so a
-    failed upload leaves the audio on the Mac to retry rather than losing it.
     Non-fatal throughout: a day with articles and no narration is still a good
-    day, and it must never fail a generation that already succeeded.
+    day, and this must never fail a generation that already succeeded.
     """
     try:
         sys.path.insert(0, os.path.join(ROOT, "scripts"))
-        import audio_release as ar
+        import audio_publish as ap
     except Exception as e:
-        print(f"[audio] cannot load the uploader: {e}", flush=True)
-        return {"uploaded": 0, "pruned": []}
+        print(f"[audio] cannot load the publisher: {e}", flush=True)
+        return {"published": 0, "pruned": []}
 
-    uploaded, pruned = 0, []
+    published, pruned = 0, []
     try:
-        if (ar.AUDIO / iso).is_dir():
+        if (ap.AUDIO / iso).is_dir():
             if phase:
-                phase("Uploading narration…")
-            uploaded = ar.upload([iso], delete_local=True)
+                phase("Publishing narration…")
+            published = ap.publish([iso])
     except Exception as e:
-        print(f"[audio] upload failed for {iso}: {e}", flush=True)
+        print(f"[audio] publish failed for {iso}: {e}", flush=True)
     try:
         if phase:
             phase("Tidying old narration…")
-        pruned = ar.prune(KEEP_AUDIO_DAYS)
+        pruned = ap.prune(KEEP_AUDIO_DAYS)
     except Exception as e:
         print(f"[audio] prune failed: {e}", flush=True)
-    return {"uploaded": uploaded, "pruned": pruned}
+    return {"published": published, "pruned": pruned}
 
 
 def narrate_day(iso, articles, phase):

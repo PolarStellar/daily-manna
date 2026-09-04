@@ -173,43 +173,55 @@ with byte-range support (`206 Partial Content`); Safari will not start playback
 without it and no browser can seek without it. A server started before that
 existed will show a Listen player that does nothing — restart it.
 
-**Narration is hosted in GitHub Releases, not in git.** One release per month
-(tag `audio-YYYY-MM`), assets named `YYYY-MM-DD-<rank>.mp3`, so the reader
-derives the URL from a date and needs no lookup. `audio/index.json` stays in the
-tree — it is about a kilobyte and it is what tells the reader which articles have
-narration — and it is rebuilt *from* GitHub, so the release is the single source
-of truth and a half-finished upload self-corrects.
+**Narration lives in its own repo**, [daily-manna-audio][dma], served over its
+own Pages site at `https://polarstellar.github.io/daily-manna-audio/<date>/<rank>.mp3`.
+`audio/index.json` stays in this tree — about a kilobyte, and it is what tells
+the reader which articles have narration — rebuilt *from* the audio repo, so
+that repo is the single source of truth.
 
-This is the fix for the real problem: in-tree, every MP3 ever rendered stayed in
-git history forever, so the clone grew ~360 MB a month no matter what was pruned,
-and GitHub Pages refuses to serve a site over 1 GB. Release assets sit outside
-the repo, cost nothing, are served with byte-range support, and can actually be
-deleted.
+[dma]: https://github.com/PolarStellar/daily-manna-audio
+
+This fixes the real problem: in-tree, every MP3 ever rendered stayed in git
+history forever, so the clone grew ~360 MB a month no matter what was pruned,
+and Pages refuses to serve a site over 1 GB. The audio repo's history is
+disposable — nothing in it cannot be re-rendered — so it can be recreated if it
+ever gets heavy.
+
+**GitHub Releases was tried first and cannot work.** Release downloads are served
+`Content-Type: application/octet-stream` with `Content-Disposition: attachment`,
+hardcoded into the signed URL and not overridable even when the asset is stored
+as `audio/mpeg`. Safari refuses to play audio on those, so it failed on the phone
+while Chrome — which sniffs the bytes — played it and hid the fault. Pages sends
+`audio/mp3` and honours byte ranges, which the player needs to start and to seek.
+`--verify` now checks the Content-Type for exactly this reason.
+
+The audio repo must be checked out beside this one (or set
+`DAILY_MANNA_AUDIO_REPO`):
 
 ```
-python3 scripts/audio_release.py --upload                  # every local day
-python3 scripts/audio_release.py --upload 2026-09-03        # one day
-python3 scripts/audio_release.py --upload --delete-local    # upload, then free the disk
-python3 scripts/audio_release.py --index                    # rebuild index.json from GitHub
-python3 scripts/audio_release.py --prune 30                 # delete assets older than 30 days
-python3 scripts/audio_release.py --verify                   # check every indexed file streams
+git clone https://github.com/PolarStellar/daily-manna-audio.git ../daily-manna-audio
 ```
 
-Local MP3s are deleted only for files the release confirms it holds, so a failed
-upload leaves them on the Mac to retry rather than losing them.
+```
+python3 scripts/audio_publish.py --publish             # move rendered days over, push
+python3 scripts/audio_publish.py --publish 2026-09-04  # one day
+python3 scripts/audio_publish.py --index               # rebuild index.json
+python3 scripts/audio_publish.py --prune 30            # drop days older than 30
+python3 scripts/audio_publish.py --verify              # type + ranges on every file
+```
 
 **The one cost: audio no longer plays offline.** The service worker ignores
 cross-origin requests, so narration needs a connection. Articles remain readable
 offline exactly as before.
 
-**Old narration ages out automatically.** Every generation deletes release assets
+**Old narration ages out automatically.** Every generation deletes days from the audio repo
 older than 30 days (`KEEP_AUDIO_DAYS` in `serve.py`) — on Sep 3 that drops Aug 3
 and older. Articles are never touched, only the MP3s, and any day can be
 re-narrated later with `generate_audio.py --from … --to …` followed by
-`audio_release.py --upload`.
+`audio_publish.py --publish`.
 
-Because the assets live outside the repo, deleting them genuinely reclaims the
-space — unlike the in-tree version, where history kept every byte.
+Because the files live in another repo, deleting them keeps this one small —
+unlike the in-tree version, where history kept every byte forever.
 
 **Watch the repo size.** At the default `mp3_44100_64` a 7-minute article is
 ~3 MB, so a full day is ~12 MB and a month is ~350 MB. If that gets heavy,
@@ -255,7 +267,7 @@ gate (Cloudflare Access) and giving up the current URL.
 |---|---|
 | `index.html` | The whole reader app (no build step) |
 | `robots.txt` | Keeps the public site out of search engines |
-| `scripts/audio_release.py` | Uploads/prunes narration in GitHub Releases |
+| `scripts/audio_publish.py` | Publishes/prunes narration in the audio repo |
 | `audio/index.json` | Which articles have narration (the MP3s are not in git) |
 | `plan.json` | All 365 days of the SCC reading plan |
 | `content/YYYY-MM-DD.json` | One generated day (4 articles) |

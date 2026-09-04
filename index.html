@@ -320,7 +320,7 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "7";
+  const BUILD = "8";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -417,15 +417,19 @@
   function hasAudio(isoStr, rank) {
     return (audioIndex[isoStr] || []).indexOf(rank) !== -1;
   }
-  // Narration lives in GitHub Releases, not the git tree — MP3s were the only
-  // thing here growing by megabytes a day, and in-tree they stayed in history
-  // forever while Pages refuses to serve a site over 1 GB. One release per
-  // month, assets named by date and rank, so the URL is derivable from both
-  // and needs no lookup table. Release downloads support byte ranges, which is
-  // what lets Safari play and the scrub bar seek.
-  const AUDIO_BASE = "https://github.com/PolarStellar/daily-manna/releases/download";
+  // Narration lives in its own repo, served over its own Pages site, so this
+  // repo stays small — MP3s were the only thing growing by megabytes a day, and
+  // in-tree every one ever rendered stayed in git history forever.
+  //
+  // NOT GitHub Releases, which was tried and cannot work: release downloads are
+  // served Content-Type: application/octet-stream with Content-Disposition:
+  // attachment, hardcoded into the signed URL, and Safari refuses to play audio
+  // on those. It failed on the phone while Chrome, which sniffs the bytes,
+  // played it and hid the fault. Pages sends audio/mp3 and honours byte ranges,
+  // which the player needs both to start and to seek.
+  const AUDIO_BASE = "https://polarstellar.github.io/daily-manna-audio";
   function audioUrl(isoStr, rank) {
-    return AUDIO_BASE + "/audio-" + isoStr.slice(0, 7) + "/" + isoStr + "-" + rank + ".mp3";
+    return AUDIO_BASE + "/" + isoStr + "/" + rank + ".mp3";
   }
   function goToday() {
     if (todayData) renderHome(); else renderMissing(plan[todayIso.slice(5)]);
