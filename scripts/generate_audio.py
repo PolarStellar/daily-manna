@@ -154,16 +154,22 @@ def render(key, vid, article, dest):
 
 
 def write_index():
-    """audio/index.json — the app reads this to decide whether to show Listen."""
-    idx = {}
-    for day_dir in sorted(AUDIO.glob("20*")):
-        if not day_dir.is_dir():
-            continue
-        ranks = sorted(int(p.stem) for p in day_dir.glob("*.mp3") if p.stem.isdigit())
-        if ranks:
-            idx[day_dir.name] = ranks
-    (AUDIO / "index.json").write_text(json.dumps(idx, indent=1, sort_keys=True) + "\n")
-    return idx
+    """audio/index.json — what the reader checks before showing a Listen button.
+
+    Delegates to audio_publish, which builds it from the audio repo. This used
+    to build it from the local staging folder instead, and the two disagreed:
+    whichever ran last won, so a render would drop every published day from the
+    index (no Listen button) and add days that were not published yet (a 404
+    when tapped). The index must describe what is actually reachable, and only
+    the audio repo knows that.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:
+        import audio_publish
+    except Exception as e:
+        print(f"      (index not rewritten — audio_publish unavailable: {e})", flush=True)
+        return {}
+    return audio_publish.write_index()
 
 
 def prune(keep_days):
