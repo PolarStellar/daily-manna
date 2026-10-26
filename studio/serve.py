@@ -32,7 +32,9 @@ PLAN_FILE = os.path.join(ROOT, "plan.json")
 SECRETS_FILE = os.path.join(HERE, ".secrets")     # gitignored; optional GEMINI_API_KEY
 
 HOST, PORT = "127.0.0.1", 8790
-CLAUDE_MODEL = "sonnet"          # excellent writer, ~5x cheaper than Opus; change if desired
+CLAUDE_MODEL = "sonnet"          # news lookups and other quick calls
+WRITER_MODEL = "claude-opus-5-5"  # articles: deeper Bible work (Kris, 2026-10-26)
+WRITER_EFFORT = "medium"
 GEMINI_MODEL = "gemini-2.5-pro"
 
 # Origins allowed to call the write API cross-origin (the public reader, and the
@@ -55,8 +57,8 @@ SLOTS = [
 # batch never leans on the same well (esp. not Philippine current events).
 # Rotated by day-of-year so the mix shifts daily. Kris: roam widely, lean positive.
 LENSES = [
-    "a moment from world history (any country, any era) — a person, discovery, or turning point",
-    "something from nature — an animal, insect, plant, or the human body — that does something surprising most people don't know",
+    "a moment from world history (any country, any era): a person, discovery, or turning point",
+    "something from nature (an animal, insect, plant, or the human body) that does something surprising most people don't know",
     "a business story, case study, or how a person/organization solved a hard problem",
     "a recent, POSITIVE news story or an uplifting public moment (e.g. an inspiring speech), from anywhere",
     "a discovery or how-it-works from science or medicine",
@@ -179,14 +181,16 @@ def loved_block():
 
 
 # ----------------------------- model calls -----------------------------
-def _run_claude(prompt, allow_web, timeout=300):
+def _run_claude(prompt, allow_web, timeout=300, model=CLAUDE_MODEL, effort=None):
     """One headless claude call. Uses Kris's claude.ai login (strips any inherited
     session API key that would override it). Returns the model's final text."""
     env = {k: v for k, v in os.environ.items()
            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
     # Strip project settings/MCP/skills: a clean writer, not this repo's agent.
-    cmd = ["claude", "-p", prompt, "--output-format", "json", "--model", CLAUDE_MODEL,
+    cmd = ["claude", "-p", prompt, "--output-format", "json", "--model", model,
            "--strict-mcp-config", "--setting-sources", "", "--disable-slash-commands"]
+    if effort:
+        cmd += ["--effort", effort]
     if allow_web:
         cmd += ["--allowedTools", "WebSearch"]
     p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
@@ -278,8 +282,9 @@ def gen_one_article(iso, slot, reading_ref, news_block, lens, avoid):
     """Write one article: Claude, retry once, then Gemini fallback."""
     prompt = build_article_prompt(iso, slot, reading_ref, news_block, lens, avoid)
     errors = []
-    attempts = [(_run_claude, {"allow_web": False}), (_run_claude, {"allow_web": False}),
-                (_run_gemini, {})]
+    writer = {"allow_web": False, "model": WRITER_MODEL, "effort": WRITER_EFFORT,
+              "timeout": 600}
+    attempts = [(_run_claude, writer), (_run_claude, writer), (_run_gemini, {})]
     for engine, kw in attempts:
         try:
             text = engine(prompt, **kw)
