@@ -320,7 +320,7 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "8";
+  const BUILD = "9";
 
   const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
@@ -1070,6 +1070,15 @@
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }
+  // todayIso is fixed at load, and the Mac's Dock app (a Brave web app) can stay
+  // open for days, so clicking it showed a week-old "today". Reload whenever the
+  // window comes back and the date has moved on.
+  function reloadIfNewDay() {
+    if (!document.hidden && ymd(new Date()) !== todayIso) location.reload();
+  }
+  document.addEventListener("visibilitychange", reloadIfNewDay);
+  window.addEventListener("focus", reloadIfNewDay);
+  window.addEventListener("pageshow", reloadIfNewDay);
   // A phone can hold an old index.html indefinitely, and twice now a shipped
   // fix never reached the device — most recently when narration moved out of
   // the git tree and an old build kept asking for a path that no longer exists,
