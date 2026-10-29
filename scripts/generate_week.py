@@ -21,7 +21,8 @@ Usage:
 
 Gates (all must pass, or it exits quietly with nothing done):
   * the Studio server answers on 127.0.0.1:8790
-  * no interactive `claude` session is running, unless --ignore-busy
+  * no interactive `claude` session has been used in the last 30 minutes,
+    unless --ignore-busy (idle open sessions don't count)
 
 The gap between days exists so a week's worth of generation never sits on the
 Claude rate limit in one burst. Generation itself shells out to `claude -p`
@@ -53,6 +54,9 @@ LOG = (Path.home() / "Library/Logs/daily-manna-week.log" if REMOTE
 
 POLL = 15          # seconds between gen-status polls
 DAY_TIMEOUT = 1500  # 25 min — a day that takes longer than this has hung
+
+TRANSCRIPTS = Path.home() / ".claude" / "projects"
+IDLE_MINUTES = 30  # a session untouched this long isn't spending the rate limit
 
 
 def say(msg):
@@ -89,13 +93,44 @@ def server_up():
 
 
 def claude_busy():
-    """True if Kris has a Claude session of his own open.
+    """True if Kris is actively using a Claude session of his own.
 
-    Counts any `claude` CLI process that isn't one of serve.py's own headless
-    `claude -p` writers — terminal sessions and desktop-app sessions both, since
-    both spend the same rate limit. Deliberately conservative: when this is on,
-    the scheduled run backs off and tries again on the next pass.
+    Needs both: a `claude` CLI process that isn't one of serve.py's own headless
+    `claude -p` writers (terminal and desktop-app sessions alike, since both
+    spend the same rate limit), and one of his transcripts written in the last
+    IDLE_MINUTES. The desktop app keeps a dozen idle sessions alive around the
+    clock, so "a session is open" alone blocked every pass from 2026-10-24 on
+    and the bank ran dry.
     """
+    return claude_open() and claude_recent()
+
+
+def claude_recent():
+    """True if an interactive (non-headless) transcript changed recently.
+
+    Headless `claude -p` runs — serve.py's writers among them — log with
+    entrypoint "sdk-cli"; terminal and desktop sessions don't.
+    """
+    cutoff = time.time() - IDLE_MINUTES * 60
+    try:
+        recent = [p for p in TRANSCRIPTS.glob("*/*.jsonl")
+                  if p.stat().st_mtime > cutoff]
+    except OSError:
+        return True        # can't tell → stay conservative
+    for p in recent:
+        try:
+            with p.open("rb") as fh:
+                fh.seek(max(0, p.stat().st_size - 65536))
+                tail = fh.read().decode("utf-8", "replace")
+        except OSError:
+            return True
+        if '"entrypoint":"sdk-cli"' not in tail:
+            return True
+    return False
+
+
+def claude_open():
+    """True if any interactive `claude` process is running."""
     try:
         out = subprocess.run(
             ["ps", "-ax", "-o", "command="],
