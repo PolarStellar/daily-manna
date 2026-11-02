@@ -331,8 +331,8 @@ def _generate_core(iso, force, push, phase):
 
     # Narrate before publishing, so the day goes live with its audio in the
     # same commit rather than appearing silent and gaining a Listen player
-    # some minutes later.
-    narrated = narrate_day(iso, articles, phase)
+    # some minutes later. Off since 2026-11-03 (NARRATE): no ElevenLabs calls.
+    narrated = narrate_day(iso, articles, phase) if NARRATE else []
 
     # Age out old narration in the same breath. Audio is the only thing here
     # that grows by megabytes a day, and GitHub Pages stops serving a site over
@@ -353,6 +353,11 @@ def _generate_core(iso, force, push, phase):
 # 30 days means a day written today keeps its audio for a month; on Sep 3 that
 # drops Aug 3 and older. Articles are never affected.
 KEEP_AUDIO_DAYS = 30
+
+# Kris turned narration off on 2026-11-03 to stop ElevenLabs voice usage. New
+# days publish with no audio (and so no Listen player); existing MP3s keep
+# playing until KEEP_AUDIO_DAYS ages them out. Set True to bring it back.
+NARRATE = False
 
 
 def publish_audio(iso, phase=None):

@@ -117,7 +117,12 @@ Progress and back-offs are logged to `logs/generate_week.log` (gitignored).
 
 ## Listening (narrated articles)
 
-**Every generated day is narrated automatically.** Writing a day now renders its
+**Narration is OFF since 2026-11-03** (`NARRATE = False` in `studio/serve.py`)
+to stop ElevenLabs voice usage. New days publish without audio; days already
+narrated keep their Listen player until they age out (30 days). Everything below
+describes how it works when `NARRATE` is True.
+
+When on, writing a day renders its
 4 articles to MP3 before publishing, so a day goes live with its audio in the
 same commit instead of showing up silent and growing a Listen player later.
 `audio/` is staged by `git_publish`, so the narration reaches the phone too.
