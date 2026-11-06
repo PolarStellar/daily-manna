@@ -51,7 +51,6 @@
   button { font: inherit; color: inherit; }
   button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
   .narrow { display: none; }
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* ---------- top row + back-to-board ---------- */
   .top { display: flex; align-items: center; gap: 12px; padding: 14px 28px; }
@@ -156,7 +155,7 @@
     max-width: 880px; margin: 0 auto; padding: 8px 28px;
     display: flex; align-items: center; gap: 10px;
   }
-  .topbar .where { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mute); letter-spacing: .12em; text-transform: uppercase; }
+  .topbar .where { margin-left: auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 700; color: var(--mute); letter-spacing: .12em; text-transform: uppercase; }
   .progress { height: 3px; background: transparent; }
   .progress > div { height: 100%; width: 0; background: var(--green); transition: width 0.15s linear; }
 
@@ -327,6 +326,8 @@
     .tool .gen-note { grid-column: 1 / -1; }
     .topbar-inner { padding: 6px 16px; }
     .topbar .obback { height: 44px; }
+    .listen-play { width: 44px; height: 44px; }
+    .listen-rate { min-height: 44px; min-width: 44px; }
   }
 </style>
 </head>
@@ -378,9 +379,9 @@
   // The board runs on port 8788 of the same Mac, so on localhost and over
   // Tailscale the same host works. The public copy lives on github.io, where
   // that would point nowhere, so it goes to the board's tailnet address
-  // (needs Tailscale on, same as every other phone app).
+  // by its tailnet name (needs Tailscale on, same as every other phone app).
   function boardUrl() {
-    if (/(^|\.)github\.io$/.test(location.hostname)) return "http://100.126.92.33:8788/";
+    if (/(^|\.)github\.io$/.test(location.hostname)) return "http://" + new URL(TAILNET).hostname + ":8788/";
     return location.protocol + "//" + location.hostname + ":8788/";
   }
   function obHtml() {
@@ -480,7 +481,7 @@
     const fail = (msg) => { btn.disabled = false; setBtnLabel(btn, "Try again"); noteEl.textContent = msg; };
     const poll = () => {
       fetch(api("api/gen-status"), { cache: "no-store" }).then(r => r.json()).then(s => {
-        if (s.running) { noteEl.textContent = (s.phase || "Working…") + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
+        if (s.running) { noteEl.textContent = phaseText(s.phase) + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
         if (s.done && s.result) {
           if (s.result.ok && s.result.articles) {
             const data = { date: iso, readings: plan[iso.slice(5)] || {}, articles: s.result.articles };
@@ -498,6 +499,8 @@
       .catch(e => fail("Couldn’t reach the generator: " + e));
   }
   function generateToday(btn, noteEl, force) { runGenerate(todayIso, btn, noteEl, force, () => renderHome()); }
+  // The server's progress lines use em dashes ("Day 1 of 3 (…) — writing…").
+  function phaseText(phase) { return (phase || "Working…").replace(/\s*—\s*/g, ": "); }
   // The big buttons keep their label in a <b>; plain buttons are just text.
   function setBtnLabel(btn, text) {
     const b = btn.querySelector("b");
@@ -559,7 +562,7 @@
       const poll = () => {
         fetch(api("api/gen-status"), { cache: "no-store" }).then(r => r.json()).then(s => {
           if (s.running) {
-            note.textContent = s.phase || "Working…";
+            note.textContent = phaseText(s.phase);
             return setTimeout(poll, 3000);
           }
           const res = s.result || {};
@@ -682,6 +685,10 @@
     return '<header class="top">' + obHtml() + '<span class="k top-k">Daily Manna</span>' + (extra || "") +
       '<span class="sp"></span><span class="build">' + esc(buildLine()) + "</span></header>";
   }
+  function heroHtml() {
+    return '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(todayIso, false) + "</h1>" +
+      '<div class="sub">Fresh articles from today’s passages, every morning.</div></div>';
+  }
   function footHtml() {
     return '<div class="build foot-build">' + esc(buildLine()) + "</div>";
   }
@@ -709,7 +716,7 @@
       '<div class="look"><label for="other-date">Other date</label>' +
       '<input type="date" id="other-date" aria-label="Other date">' +
       '<button class="btn g" id="open-date">Open</button></div></div>' +
-      (ahead.length ? '<div class="hint">Gold days are already written and waiting.</div>' : "") +
+      (btns.includes('dy f"') ? '<div class="hint">Gold days are already written and waiting.</div>' : "") +
       "</section>";
   }
   function wireBrowse() {
@@ -743,8 +750,7 @@
     app.innerHTML =
       '<div id="home-view">' + topHtml() +
       '<div class="col">' +
-      '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(todayIso, false) + "</h1>" +
-      '<div class="sub">Fresh articles from today’s passages, every morning.</div></div>' +
+      heroHtml() +
       readsHtml(todayData.readings) +
       '<button class="big p" id="read-all"><b>' + primaryLabel + "</b><span>" + primarySmall + "</span></button>" +
       browseHtml() +
@@ -767,8 +773,7 @@
     app.innerHTML =
       '<div id="home-view">' + topHtml() +
       '<div class="col">' +
-      '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(todayIso, false) + "</h1>" +
-      '<div class="sub">Fresh articles from today’s passages, every morning.</div></div>' +
+      heroHtml() +
       (planReadings ? readsHtml(planReadings) : "") +
       '<section class="card missing-card"><h2>Today’s articles aren’t ready yet</h2>' +
       (apiOk
