@@ -8,198 +8,235 @@
 <!-- Public so it reads anywhere without a VPN, but kept out of search. -->
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
-<meta name="theme-color" content="#f7f2e9">
+<meta name="theme-color" content="#EEF2EC">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Daily Manna">
+<!-- Loaded without blocking the first paint: offline or on a slow phone
+     connection the page draws at once in the fallback fonts. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Nunito+Sans:wght@800&display=swap">
 <style>
   :root {
-    --paper: #f7f2e9;
-    --paper-deep: #efe7d8;
-    --ink: #33291e;
-    --ink-soft: #6b5d4b;
-    --accent: #9c4221;
-    --accent-soft: #c05621;
-    --rule: #ddd2bf;
-    --serif: "Charter", "Iowan Old Style", "Palatino", "Georgia", serif;
+    --bg: #EEF2EC;
+    --paper: #FFFFFF;
+    --line: #DCE3D9;
+    --ink: #17291F;
+    --mute: #55665B;
+    --green: #1F5A43;
+    --green-deep: #174634;
+    --green-soft: #E1ECE4;
+    --gold: #8C6414;
+    --gold-soft: #F6EBD3;
+    --gold-line: #E8D3A4;
+    --head: Fraunces, Georgia, serif;
+    --ui: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "Charter", "Iowan Old Style", "Palatino", Georgia, serif; /* article prose */
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
-    background: var(--paper);
+    background: var(--bg);
     color: var(--ink);
-    font-family: var(--serif);
-    font-size: 20px;
-    line-height: 1.68;
+    font-family: var(--ui);
+    font-size: 16px;
+    line-height: normal;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 40rem; margin: 0 auto; padding: 0 1.35rem 4rem; }
+  a { color: var(--green); }
+  button { font: inherit; color: inherit; }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  .narrow { display: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-  /* ---------- masthead ---------- */
-  header.masthead { text-align: center; padding: 2.6rem 0 1.4rem; }
-  .brand {
-    font-size: 1.05rem; letter-spacing: 0.34em; text-transform: uppercase;
-    color: var(--accent); font-weight: 700;
+  /* ---------- top row + back-to-board ---------- */
+  .top { display: flex; align-items: center; gap: 12px; padding: 14px 28px; }
+  .sp { flex: 1; }
+  .obback {
+    height: 40px; min-width: 44px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--paper); color: var(--ink); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 3px; padding: 0 8px 0 5px; flex: none;
   }
-  .brand-rule {
-    width: 3.2rem; height: 3px; background: var(--accent);
-    margin: 0.85rem auto 0; border-radius: 2px;
+  .obl {
+    width: 28px; height: 28px; border-radius: 8px; background: #3563E9; color: #fff;
+    display: grid; place-items: center; font-family: "Nunito Sans", system-ui, sans-serif;
+    font-weight: 800; font-size: 12px;
   }
+  .build { font-size: 12px; color: var(--mute); }
+  .foot-build { display: none; text-align: center; }
+  .top-k { display: none; }
+  .k { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
 
-  /* ---------- home ---------- */
-  .home-date { text-align: center; font-size: 1.28rem; font-style: italic; color: var(--ink-soft); margin-top: 0.4rem; }
-  .readings-card {
-    margin: 1.8rem 0 2.2rem; padding: 1.4rem 1.5rem;
-    background: var(--paper-deep); border-radius: 14px;
+  /* ---------- home column ---------- */
+  .col { width: 100%; max-width: 880px; margin: 0 auto; padding: 8px 28px 40px; display: flex; flex-direction: column; gap: 20px; }
+  .hero { display: flex; flex-direction: column; gap: 6px; }
+  .hero h1 { font-family: var(--head); font-size: 44px; font-weight: 600; letter-spacing: -.01em; line-height: 1.05; }
+  .sub { font-size: 15px; color: var(--mute); }
+
+  .reads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .rd { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .rd .l { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--green); }
+  .rd .v { font-family: var(--head); font-size: 19px; font-weight: 600; line-height: 1.25; }
+  a.ref { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--line); }
+  a.ref:hover { color: var(--green); border-bottom-color: var(--green); }
+
+  .big {
+    display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left;
+    padding: 20px 22px; border-radius: 18px; border: 0; cursor: pointer;
   }
-  .readings-card h2 {
-    font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase;
-    color: var(--ink-soft); font-weight: 700; margin-bottom: 0.8rem;
+  .big b { font-family: var(--head); font-size: 22px; font-weight: 600; }
+  .big span { font-size: 13.5px; opacity: .85; }
+  .big.p { background: var(--green); color: #fff; }
+  .big.p:hover { background: var(--green-deep); }
+  .big.s { background: var(--paper); color: var(--ink); border: 1.5px solid var(--green); }
+  .big[disabled] { opacity: .6; cursor: default; }
+
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .card h2 { font-family: var(--head); font-size: 19px; font-weight: 600; }
+  .card p { color: var(--mute); font-size: 14.5px; }
+  .hint { font-size: 12.5px; color: var(--mute); }
+
+  /* browse by date: a short row of days, and a field for anything older */
+  .browse-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .days { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dy {
+    min-width: 64px; height: 62px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: var(--ink); cursor: pointer; padding: 0 6px;
   }
-  .readings-card ul { list-style: none; }
-  .readings-card li {
-    padding: 0.34rem 0; font-size: 1.02rem; color: var(--ink);
-    display: flex; gap: 0.7rem; align-items: baseline;
+  .dy small { font-size: 11px; color: var(--mute); font-weight: 600; }
+  .dy b { font-size: 16px; }
+  .dy:hover { border-color: var(--green); }
+  .dy.on { background: var(--green); border-color: var(--green); color: #fff; }
+  .dy.on small { color: rgba(255, 255, 255, .85); }
+  .dy.f { background: var(--gold-soft); border-color: var(--gold-line); }
+  .dy.none { opacity: .55; }
+  .look { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .look label { font-size: 13px; color: var(--mute); }
+  .look input {
+    height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg);
+    padding: 0 10px; font: inherit; font-size: 13.5px; color: var(--ink);
   }
-  .readings-card li .tag {
-    flex: none; width: 5.6rem; font-size: 0.78rem; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--accent); font-weight: 700;
-  }
-  .readings-card li a.ref { color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--rule); }
-  .kicker a.ref { color: var(--accent); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
-  .choice { display: flex; flex-direction: column; gap: 0.9rem; }
   .btn {
-    display: block; width: 100%; border: none; cursor: pointer;
-    font-family: var(--serif); text-align: center; text-decoration: none;
-    border-radius: 14px; padding: 1.15rem 1rem; font-size: 1.22rem; line-height: 1.35;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px;
+    padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper);
+    color: var(--ink); font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
   }
-  .btn-primary { background: var(--accent); color: #fdf9f1; font-weight: 700; }
-  .btn-secondary { background: transparent; color: var(--accent); border: 2px solid var(--accent); font-weight: 700; }
-  .btn small { display: block; font-size: 0.86rem; font-weight: 400; opacity: 0.85; margin-top: 0.2rem; }
-  .home-note { text-align: center; color: var(--ink-soft); font-size: 0.92rem; margin-top: 2rem; font-style: italic; }
-  .archive-link {
-    display: block; width: 100%; margin-top: 1.4rem; background: none; border: none;
-    font-family: var(--serif); cursor: pointer; text-align: center;
-    color: var(--accent); font-size: 1.02rem; font-weight: 700; padding: 0.6rem;
-    letter-spacing: 0.02em;
-  }
+  .btn:hover { border-color: var(--green); }
+  .btn.g { background: var(--green-soft); border-color: transparent; color: var(--green); }
+  .btn[disabled] { opacity: .6; cursor: default; }
+
+  /* tools: regenerate, next 7 days, Mac server */
+  .tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .tools.n1 { grid-template-columns: minmax(0, 1fr); }
+  .tools.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tool { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .tool .x { display: flex; flex-direction: column; gap: 6px; }
+  .tool .h { font-weight: 700; font-size: 14px; }
+  .tool .d { font-size: 12.5px; color: var(--mute); line-height: 1.45; }
+  .done { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: var(--green-soft); color: var(--green); }
+  .gen-note { font-size: 13px; color: var(--mute); min-height: 1.2em; }
+  .gen-note:empty { display: none; }
+  .cta .gen-note, .missing-card .gen-note { margin-top: 6px; }
+
+  .day-nav { display: flex; gap: 8px; margin-top: 6px; }
 
   /* ---------- reading top bar ---------- */
   .topbar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 10;
-    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--rule);
+    border-bottom: 1px solid var(--line);
   }
   .topbar-inner {
-    max-width: 40rem; margin: 0 auto; padding: 0.55rem 1.1rem;
-    display: flex; align-items: center; justify-content: space-between;
+    max-width: 880px; margin: 0 auto; padding: 8px 28px;
+    display: flex; align-items: center; gap: 10px;
   }
-  .topbar button {
-    background: none; border: none; font-family: var(--serif); cursor: pointer;
-    color: var(--accent); font-size: 1rem; font-weight: 700; padding: 0.3rem 0.2rem;
-  }
-  .topbar .where { font-size: 0.85rem; color: var(--ink-soft); letter-spacing: 0.12em; text-transform: uppercase; }
+  .topbar .where { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--mute); letter-spacing: .12em; text-transform: uppercase; }
   .progress { height: 3px; background: transparent; }
-  .progress > div { height: 100%; width: 0; background: var(--accent-soft); transition: width 0.15s linear; }
+  .progress > div { height: 100%; width: 0; background: var(--green); transition: width 0.15s linear; }
 
   /* ---------- article ---------- */
-  main.reading { padding-top: 4.2rem; }
+  .wrap { max-width: 40rem; margin: 0 auto; padding: 0 1.35rem 4rem; }
+  main.reading { padding-top: 4.4rem; font-family: var(--serif); font-size: 20px; line-height: 1.68; }
   .art { padding: 2.4rem 0 1rem; }
   .art-head {
     display: block; width: 100%; text-align: left; background: none; border: none;
-    font-family: var(--serif); color: var(--ink); cursor: pointer; padding: 0;
+    color: var(--ink); cursor: pointer; padding: 0;
   }
   .kicker {
     display: flex; gap: 0.8rem; align-items: baseline; flex-wrap: wrap;
-    font-size: 0.84rem; letter-spacing: 0.18em; text-transform: uppercase;
-    color: var(--accent); font-weight: 700; margin-bottom: 0.9rem;
+    font-family: var(--ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--gold); font-weight: 700; margin-bottom: 0.9rem;
   }
-  .kicker .mins { color: var(--ink-soft); letter-spacing: 0.08em; font-weight: 400; }
+  .kicker a.ref { color: var(--gold); border-bottom: 1px solid var(--gold-line); }
+  .kicker .mins { color: var(--mute); letter-spacing: 0.08em; font-weight: 500; }
   .art h1 {
-    font-size: 2.15rem; line-height: 1.16; letter-spacing: -0.01em; margin-bottom: 0.9rem;
+    font-family: var(--head); font-weight: 600;
+    font-size: 2.15rem; line-height: 1.12; letter-spacing: -0.01em; margin-bottom: 0.9rem;
   }
   .read-badge {
-    display: none; align-items: center; gap: 0.45rem;
-    font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-soft); font-weight: 700; margin-bottom: 0.4rem;
+    display: none; align-items: center; gap: 0.45rem; font-family: var(--ui);
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--mute); font-weight: 700; margin-bottom: 0.4rem;
   }
-  .read-badge .chev { color: var(--accent); }
+  .read-badge .chev { color: var(--green); }
   .dek {
-    font-size: 1.18rem; line-height: 1.5; font-style: italic; color: var(--ink-soft);
+    font-size: 1.18rem; line-height: 1.5; font-style: italic; color: var(--mute);
     margin-bottom: 1.9rem;
   }
   .body p { margin-bottom: 1.25rem; }
   .body p:first-of-type::first-letter {
-    font-size: 3.4em; float: left; line-height: 0.82; padding: 0.08em 0.12em 0 0;
-    color: var(--accent); font-weight: 700;
+    font-family: var(--head); font-size: 3.4em; float: left; line-height: 0.82; padding: 0.08em 0.12em 0 0;
+    color: var(--green); font-weight: 600;
   }
   .body blockquote {
-    margin: 2rem 0.4rem; padding: 0 0 0 1.15rem; border-left: 3px solid var(--accent);
-    font-size: 1.22rem; line-height: 1.5; color: var(--accent); font-weight: 500;
+    margin: 2rem 0.4rem; padding: 0 0 0 1.15rem; border-left: 3px solid var(--gold);
+    font-family: var(--head); font-size: 1.22rem; line-height: 1.5; color: var(--green); font-weight: 500;
   }
   .body strong { color: var(--ink); }
-  .end-mark { text-align: center; color: var(--accent); font-size: 1.6rem; padding: 1.6rem 0 0.2rem; }
-  .collapse-btn {
-    display: block; margin: 0.2rem auto 0; background: none; border: none;
-    font-family: var(--serif); cursor: pointer; color: var(--ink-soft);
-    font-size: 0.86rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
-    padding: 0.5rem 1rem;
-  }
+  .end-mark { text-align: center; color: var(--gold); font-size: 1.6rem; padding: 1.6rem 0 0.2rem; }
+  .art-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: .6rem; font-family: var(--ui); }
+  .art-actions .btn { min-height: 44px; }
+  .collapse-btn { color: var(--mute); }
   /* collapsed state: hide the reading body + drop cap, reveal the "read" badge */
   .art.collapsed .art-body { display: none; }
   .art.collapsed .art-head h1 { margin-bottom: 0.2rem; opacity: 0.72; }
   .art.collapsed .read-badge { display: flex; }
-  .read-badge .heart { color: var(--accent); }
-
-  .love-btn {
-    display: inline-flex; align-items: center; gap: 0.45rem; margin: 0.2rem auto 0;
-    background: none; border: none; font-family: var(--serif); cursor: pointer;
-    color: var(--ink-soft); font-size: 0.86rem; letter-spacing: 0.14em;
-    text-transform: uppercase; font-weight: 700; padding: 0.5rem 1rem;
-  }
-  .love-btn .ic { font-size: 1.1rem; line-height: 1; }
-  .love-btn.loved { color: var(--accent); }
-  .export-btn {
-    display: inline-flex; align-items: center; gap: 0.45rem; margin: 0.2rem auto 0;
-    background: none; border: none; font-family: var(--serif); cursor: pointer;
-    color: var(--accent); font-size: 0.86rem; letter-spacing: 0.14em;
-    text-transform: uppercase; font-weight: 700; padding: 0.5rem 1rem;
-  }
+  .read-badge .heart { color: var(--green); }
+  .love-btn.loved { color: var(--green); border-color: var(--green); }
   .print-head { display: none; }
 
   /* ---------- listen (narrated article) ---------- */
   .listen {
-    display: flex; align-items: center; gap: 0.85rem;
+    display: flex; align-items: center; gap: 0.85rem; font-family: var(--ui);
     margin: 1.6rem 0 0.4rem; padding: 0.7rem 0.9rem;
-    background: var(--paper-deep); border-radius: 12px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 14px;
   }
   .art.collapsed .listen { margin-bottom: 0.9rem; }
   .listen-play {
     flex: none; width: 2.6rem; height: 2.6rem; border-radius: 50%;
-    border: none; cursor: pointer; background: var(--accent); color: var(--paper);
+    border: none; cursor: pointer; background: var(--green); color: #fff;
     font-size: 0.9rem; line-height: 1; display: flex; align-items: center;
     justify-content: center; padding-left: 0.12em;
   }
-  .listen.playing .listen-play { background: var(--accent-soft); padding-left: 0; }
-  .listen-play:disabled { background: var(--rule); cursor: default; }
+  .listen.playing .listen-play { background: var(--green-deep); padding-left: 0; }
+  .listen-play:disabled { background: var(--line); cursor: default; }
   .listen-mid { flex: 1; min-width: 0; }
-  .listen-bar {
-    height: 5px; border-radius: 3px; background: var(--rule);
-    cursor: pointer; overflow: hidden;
-  }
-  .listen-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; }
+  .listen-bar { height: 5px; border-radius: 3px; background: var(--line); cursor: pointer; overflow: hidden; }
+  .listen-fill { height: 100%; width: 0; background: var(--green); border-radius: 3px; }
   .listen-time {
     display: flex; justify-content: space-between; gap: 0.6rem;
-    margin-top: 0.35rem; font-size: 0.72rem; letter-spacing: 0.14em;
-    text-transform: uppercase; font-weight: 700; color: var(--ink-soft);
+    margin-top: 0.35rem; font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; font-weight: 700; color: var(--mute);
   }
   .listen-rate {
-    flex: none; background: none; border: 1px solid var(--rule); border-radius: 999px;
-    font-family: var(--serif); cursor: pointer; color: var(--ink-soft);
-    font-size: 0.76rem; font-weight: 700; padding: 0.28rem 0.6rem;
+    flex: none; background: none; border: 1px solid var(--line); border-radius: 999px;
+    cursor: pointer; color: var(--mute); font-size: 12px; font-weight: 700; padding: 0.28rem 0.6rem;
   }
 
   /* ---------- print / Save-as-PDF: isolate one article, drop all UI ---------- */
@@ -207,9 +244,8 @@
      whitespace is provided by padding on the article instead. */
   @page { margin: 0; }
   @media print {
-    .topbar, .progress, .more-wrap, .finish, .divider,
-    .love-btn, .collapse-btn, .export-btn, .read-badge, .kicker .mins,
-    .listen { display: none !important; }
+    .topbar, .progress, .finish, .divider, .art-actions,
+    .read-badge, .kicker .mins, .listen { display: none !important; }
     body { background: #fff; }
     main.reading { padding-top: 0 !important; }
     .wrap { max-width: 100%; padding: 0; }
@@ -217,100 +253,85 @@
     body.printing .art.print-target { display: block !important; padding: 1.5cm 1.3cm !important; }
     body.printing .art.print-target .art-body { display: block !important; }
     .art.print-target .print-head {
-      display: block; text-align: center; margin-bottom: 1.4rem; color: var(--accent);
+      display: block; text-align: center; margin-bottom: 1.4rem; color: var(--green); font-family: var(--ui);
       font-size: 0.8rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700;
     }
     .art h1 { page-break-after: avoid; }
     .body blockquote { page-break-inside: avoid; }
   }
 
-  .gen-note { text-align: center; color: var(--ink-soft); font-size: 0.96rem; font-style: italic; margin-top: 1.1rem; min-height: 1.2em; }
-  .btn[disabled] { opacity: 0.6; cursor: default; }
-  .regen { margin-top: 0.9rem; }
-
   .divider {
-    display: flex; align-items: center; gap: 1rem; color: var(--ink-soft);
-    font-size: 0.82rem; letter-spacing: 0.2em; text-transform: uppercase; padding: 1.2rem 0 0;
+    display: flex; align-items: center; gap: 1rem; color: var(--mute); font-family: var(--ui);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; padding: 1.2rem 0 0;
   }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-  .more-wrap { text-align: center; padding: 2.5rem 0 1rem; }
-  .finish { text-align: center; padding: 3rem 0 2rem; color: var(--ink-soft); font-style: italic; }
-  .finish .verse { font-size: 1.05rem; margin-bottom: 1.6rem; }
+  .finish { text-align: center; padding: 3rem 0 2rem; color: var(--mute); font-style: italic; }
+  .finish .verse { font-family: var(--head); font-size: 1.05rem; margin-bottom: 1.6rem; }
+  .finish .big { font-style: normal; align-items: center; text-align: center; font-family: var(--ui); }
   .allread {
-    margin: 0.6rem 0 1.6rem; padding: 1rem 1.2rem; background: var(--paper-deep);
-    border-radius: 12px; text-align: center; color: var(--ink-soft); font-size: 0.98rem;
+    margin: 0.6rem 0 1.6rem; padding: 1rem 1.2rem; background: var(--paper); border: 1px solid var(--line);
+    border-radius: 14px; text-align: center; color: var(--mute); font-family: var(--ui); font-size: 15px;
   }
-  .allread strong { color: var(--ink); font-style: normal; }
-
-  /* ---------- archive ---------- */
-  .archive-head { text-align: center; padding: 0.4rem 0 1.4rem; }
-  .archive-head h2 { font-size: 1.7rem; color: var(--ink); }
-  .day-list { list-style: none; margin-top: 0.5rem; }
-  .day-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    width: 100%; background: var(--paper-deep); border: none; cursor: pointer;
-    font-family: var(--serif); text-align: left; color: var(--ink);
-    border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: 0.7rem;
-  }
-  .day-row .d-date { display: block; font-size: 1.14rem; font-weight: 700; }
-  .day-row .d-meta { display: block; font-size: 0.88rem; color: var(--ink-soft); margin-top: 0.15rem; }
-  .day-row .d-right { display: flex; align-items: center; gap: 0.6rem; flex: none; }
-  .day-row .d-count {
-    font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--accent); font-weight: 700;
-  }
-  .day-row .d-progress { font-size: 0.8rem; color: var(--ink-soft); }
-  .day-row .chev { color: var(--accent); font-size: 1.2rem; }
-
-  /* ---------- calendar dashboard ---------- */
-  .cal { margin-top: 1.2rem; }
-  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9rem; }
-  .cal-title { font-size: 1.5rem; font-weight: 700; color: var(--ink); }
-  .cal-nav { background: none; border: none; font-family: var(--serif); cursor: pointer; color: var(--accent); font-size: 1.9rem; line-height: 1; padding: 0.2rem 0.9rem; border-radius: 10px; }
-  .cal-nav:active { background: var(--paper-deep); }
-  .cal-jump { text-align: center; margin-bottom: 1rem; color: var(--ink-soft); font-size: 0.9rem; }
-  .cal-jump input { font-family: var(--serif); font-size: 1rem; margin-left: 0.5rem; padding: 0.45rem 0.6rem; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); color: var(--ink); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .cal-wd { text-align: center; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); font-weight: 700; padding-bottom: 0.3rem; }
-  .cal-cell { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border: none; background: var(--paper-deep); color: var(--ink); font-family: var(--serif); font-size: 1.05rem; border-radius: 12px; cursor: pointer; }
-  .cal-cell.blank { background: none; cursor: default; }
-  .cal-cell.has { background: var(--accent); color: #fdf9f1; font-weight: 700; }
-  .cal-cell.today { box-shadow: inset 0 0 0 2.5px var(--accent); }
-  .cal-cell.has.today { box-shadow: inset 0 0 0 2.5px #fdf9f1; }
-  .cal-cell.future:not(.has) { color: var(--ink-soft); opacity: 0.5; }
-  .cal-cell:not(.blank):active { transform: scale(0.94); }
-  .cal-legend { display: flex; gap: 1.4rem; justify-content: center; margin-top: 1.2rem; color: var(--ink-soft); font-size: 0.85rem; }
-  .cal-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
-  .cal-legend .lg { width: 14px; height: 14px; border-radius: 5px; display: inline-block; }
-  .cal-legend .lg.has { background: var(--accent); }
-  .cal-legend .lg.none { background: var(--paper-deep); }
-
-  /* prev / next date nav on a day page */
-  .day-nav { display: flex; justify-content: space-between; align-items: center; margin: 0.1rem 0 1.6rem; }
-  .day-nav button {
-    background: none; border: none; font-family: var(--serif); cursor: pointer;
-    color: var(--accent); font-size: 1rem; font-weight: 700; padding: 0.4rem 0.6rem;
-    letter-spacing: 0.02em; border-radius: 8px;
-  }
-  .day-nav button:active { background: var(--paper-deep); }
-
-  .missing { text-align: center; padding: 3rem 1rem; color: var(--ink-soft); }
-  .missing h2 { font-size: 1.5rem; color: var(--ink); margin-bottom: 1rem; }
-  .missing p { margin-bottom: 0.8rem; }
+  .allread strong { color: var(--ink); }
 
   @media (min-width: 700px) {
-    body { font-size: 21px; }
+    main.reading { font-size: 21px; }
     .art h1 { font-size: 2.5rem; }
   }
-  .week-wrap { margin-top: 1.4rem; }
-  .week-wrap .btn { width: 100%; }
-  .build-stamp { text-align: center; font-size: .72rem; opacity: .35; margin-top: 1.6rem;
-    letter-spacing: .04em; }
+  @media (max-width: 900px) {
+    .reads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tools, .tools.n2 { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  /* ---------- phone ---------- */
+  @media (max-width: 640px) {
+    .top { padding: 16px 16px 0; gap: 10px; }
+    .top-k { display: inline; font-size: 11.5px; }
+    .top .build, .hero .k { display: none; }
+    .foot-build { display: block; }
+    .obback, .btn, .look input { min-height: 44px; height: auto; }
+    .obback { height: 44px; }
+    .col { padding: 14px 16px 28px; gap: 14px; }
+    .hero h1 { font-size: 32px; line-height: 1.1; }
+    .sub { font-size: 13.5px; }
+    .reads { display: block; background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 6px 16px; }
+    .rd { flex-direction: row; justify-content: space-between; gap: 12px; padding: 11px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; }
+    .rd:last-child { border-bottom: 0; }
+    .rd .l { padding-top: 3px; flex: none; }
+    .wide { display: none; }
+    .narrow { display: inline; }
+    .rd .v { font-size: 16.5px; text-align: right; }
+    .big { padding: 18px; }
+    .big b { font-size: 20px; }
+    .big span { font-size: 13px; }
+    .card { padding: 16px; }
+    .card h2 { font-size: 18px; }
+    .browse-row { display: block; }
+    .days { flex-wrap: nowrap; overflow-x: auto; gap: 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .days::-webkit-scrollbar { display: none; }
+    .dy { flex: 0 0 52px; min-width: 52px; height: 60px; padding: 0; }
+    .dy small { font-size: 10.5px; }
+    .look { margin: 12px 0 0; }
+    .look { align-items: center; }
+    .look label { flex: none; }
+    .look input { flex: 1; min-width: 0; border-radius: 12px; font-size: 15px; padding: 0 12px; }
+    .btn { border-radius: 12px; font-size: 14px; }
+    .tools { display: block; }
+    .tool { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .tool:first-child { padding-top: 0; }
+    .tool:last-child { border-bottom: 0; padding-bottom: 0; }
+    .tool .x { gap: 0; }
+    .tool .h { font-weight: 600; }
+    .tool .d { font-size: 12px; }
+    .tool .gen-note { grid-column: 1 / -1; }
+    .topbar-inner { padding: 6px 16px; }
+    .topbar .obback { height: 44px; }
+  }
 </style>
 </head>
 <body>
-<div id="app" class="wrap"></div>
+<div id="app"></div>
 <script>
 (function () {
   const app = document.getElementById("app");
@@ -320,9 +341,11 @@
   // Shown small on the home screen. Its only job is to answer "is the phone
   // actually running the code I just shipped?" — a question that cost a whole
   // debugging round when an iPhone kept serving a cached app that looked fine.
-  const BUILD = "9";
+  const BUILD = "10";
 
-  const READING_TAGS = [["psalm", "Psalm"], ["ot", "Old Test."], ["nt", "New Test."], ["prov", "Proverbs"]];
+  // [key, label on desktop, label on a phone]
+  const READING_TAGS = [["psalm", "Psalm", "Psalm"], ["ot", "Old Testament", "Old Test."],
+    ["nt", "New Testament", "New Test."], ["prov", "Proverbs", "Proverbs"]];
   let todayData = null;      // today's articles (or null if not generated)
   let apiOk = false;         // true when the generator server is reachable
   let apiBase = "";          // "" = same-origin (on the Mac); tailnet URL when remote
@@ -333,7 +356,6 @@
   let plan = {};             // MM-DD -> readings, for any date's passages
   let generatedSet = new Set(); // ISO dates that have articles
   let audioIndex = {};       // ISO date -> [ranks] that have a narrated MP3
-  let calState = null;       // {y, m} month the calendar is showing
 
   // ---------- helpers ----------
   function ymd(d) {
@@ -350,6 +372,22 @@
     const url = "https://www.biblegateway.com/passage/?version=NIV&search=" +
       encodeURIComponent(String(ref).replace(/[–—]/g, "-"));
     return '<a class="ref" href="' + url + '" target="_blank" rel="noopener">' + esc(ref) + "</a>";
+  }
+
+  // ---------- back to the Ops Board ----------
+  // The board runs on port 8788 of the same Mac, so on localhost and over
+  // Tailscale the same host works. The public copy lives on github.io, where
+  // that would point nowhere, so it goes to the board's tailnet address
+  // (needs Tailscale on, same as every other phone app).
+  function boardUrl() {
+    if (/(^|\.)github\.io$/.test(location.hostname)) return "http://100.126.92.33:8788/";
+    return location.protocol + "//" + location.hostname + ":8788/";
+  }
+  function obHtml() {
+    return '<a class="obback" href="' + boardUrl() + '" aria-label="Back to Ops Board" title="Back to Ops Board">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>' +
+      '<span class="obl" aria-hidden="true">OB</span></a>';
   }
 
   // ---------- read-state (per device, localStorage) ----------
@@ -438,8 +476,8 @@
   // Generate a specific date; onSuccess(data) fires when the articles are ready.
   function runGenerate(iso, btn, noteEl, force, onSuccess) {
     btn.disabled = true;
-    btn.textContent = "Writing the articles…";
-    const fail = (msg) => { btn.disabled = false; btn.textContent = "Try again"; noteEl.textContent = msg; };
+    setBtnLabel(btn, "Writing the articles…");
+    const fail = (msg) => { btn.disabled = false; setBtnLabel(btn, "Try again"); noteEl.textContent = msg; };
     const poll = () => {
       fetch(api("api/gen-status"), { cache: "no-store" }).then(r => r.json()).then(s => {
         if (s.running) { noteEl.textContent = (s.phase || "Working…") + " (this takes a few minutes)"; return setTimeout(poll, 3000); }
@@ -460,34 +498,62 @@
       .catch(e => fail("Couldn’t reach the generator: " + e));
   }
   function generateToday(btn, noteEl, force) { runGenerate(todayIso, btn, noteEl, force, () => renderHome()); }
+  // The big buttons keep their label in a <b>; plain buttons are just text.
+  function setBtnLabel(btn, text) {
+    const b = btn.querySelector("b");
+    if (b) b.textContent = text; else btn.textContent = text;
+  }
+
+  // ---------- tools: only when the generator is reachable ----------
+  // On the public site with the Mac asleep there is nothing they could do.
+  // Desktop text, and the shorter version a phone shows instead.
+  function wn(wide, narrow) {
+    return '<span class="wide">' + wide + '</span><span class="narrow">' + narrow + "</span>";
+  }
+  function toolHtml(title, desc, action, noteId) {
+    return '<div class="tool"><div class="x"><span class="h">' + title + '</span><span class="d">' + desc + "</span></div>" +
+      action + '<div class="gen-note" id="' + noteId + '"></div></div>';
+  }
+  function toolsHtml(regenTitle) {
+    if (!apiOk) return "";
+    const tools = [];
+    if (regenTitle) {
+      tools.push(toolHtml(regenTitle, wn("Rewrites the articles from the same passages.", "Rewrites from the same passages"),
+        '<button class="btn" id="regen">' + wn("Regenerate", "Run") + "</button>", "regen-note"));
+    }
+    tools.push(weekToolHtml(), restartToolHtml());
+    return '<section class="card" aria-label="Mac tools"><div class="tools n' + tools.length + '">' + tools.join("") + "</div></section>";
+  }
 
   // ---------- "next 7 days" ----------
   // One tap fills every empty day in the rolling week. The work happens on the
   // Mac, not here: the server walks the days itself, so the phone can lock and
-  // the tab can close mid-run without stopping it. This only appears when the
-  // generator is actually reachable — on the public site with the Mac asleep
-  // there is nothing it could do.
-  function weekBtnHtml() {
-    if (!apiOk) return "";
+  // the tab can close mid-run without stopping it.
+  function weekDays() { return (apiInfo && apiInfo.windowDays) || 7; }
+  function weekToolHtml() {
     const missing = apiInfo && typeof apiInfo.missing === "number" ? apiInfo.missing : null;
-    const days = (apiInfo && apiInfo.windowDays) || 7;
-    const small = missing === null ? "today and the next " + (days - 1)
-      : missing === 0 ? "all " + days + " days are already written"
-      : missing + (missing === 1 ? " day" : " days") + " still empty";
-    return '<div class="week-wrap">' +
-      '<button class="btn btn-secondary" id="genweek"' + (missing === 0 ? " disabled" : "") + '>' +
-      "📅 Generate the next " + days + " days<small>" + small + "</small></button>" +
-      '<div class="gen-note" id="week-note"></div></div>';
+    const days = weekDays();
+    const title = "Generate the next " + days + " days";
+    if (missing === 0) {
+      return toolHtml(title, wn("Skips days already written. Runs on your Mac.", "Runs on your Mac"),
+        '<span class="done">' + wn("All " + days + " days are already written", "All written") + "</span>", "week-note");
+    }
+    const state = missing === null ? "Writes today and the next " + (days - 1) + "."
+      : missing + (missing === 1 ? " day" : " days") + " still empty.";
+    return toolHtml(title, state + wn(" Runs on your Mac, about half an hour.", ""),
+      '<button class="btn" id="genweek">Generate</button>', "week-note");
   }
 
   function wireWeekBtn(afterDone) {
     const btn = document.getElementById("genweek");
     if (!btn) return;
     const note = document.getElementById("week-note");
+    const label = btn.innerHTML;
+    const reset = () => { btn.disabled = false; btn.innerHTML = label; };
     btn.onclick = () => {
-      const days = (apiInfo && apiInfo.windowDays) || 7;
+      const days = weekDays();
       if (!confirm("Write articles for every empty day in the next " + days +
-                   " days?\n\nThis runs on your Mac and can take a while — you can close this and come back.")) return;
+                   " days?\n\nThis runs on your Mac and can take a while. You can close this and come back.")) return;
       btn.disabled = true;
       btn.textContent = "Working…";
       const poll = () => {
@@ -500,9 +566,8 @@
           const madeCount = (res.generated || []).length;
           note.textContent = res.failed && res.failed.length
             ? "Wrote " + madeCount + "; couldn’t write " + res.failed.join(", ") + ". Tap to try again."
-            : "Done — wrote " + madeCount + (madeCount === 1 ? " day." : " days.");
-          btn.disabled = false;
-          btn.textContent = "📅 Generate the next " + ((apiInfo && apiInfo.windowDays) || 7) + " days";
+            : "Done. Wrote " + madeCount + (madeCount === 1 ? " day." : " days.");
+          reset();
           // Pull the new days into the app so they are readable immediately.
           Promise.all([loadGenerated(), pingRefresh()])
             .then(() => loadDay(todayIso).then(d => { todayData = d; }).catch(() => {}))
@@ -514,23 +579,20 @@
         body: JSON.stringify({ days: days })
       }).then(r => r.json()).then(res => {
         if (res.nothingToDo) {
-          note.textContent = res.message || "Nothing to write — every day is done.";
-          btn.disabled = false;
-          btn.textContent = "📅 Generate the next " + days + " days";
+          note.textContent = res.message || "Nothing to write. Every day is done.";
+          reset();
           return;
         }
         if (!res.ok) {
           note.textContent = "Couldn’t start: " + (res.error || "unknown");
-          btn.disabled = false;
-          btn.textContent = "📅 Generate the next " + days + " days";
+          reset();
           return;
         }
         note.textContent = res.total ? "Writing " + res.total + " days…" : "Starting…";
         poll();
       }).catch(e => {
         note.textContent = "Couldn’t reach the generator: " + e.message;
-        btn.disabled = false;
-        btn.textContent = "📅 Generate the next " + days + " days";
+        reset();
       });
     };
   }
@@ -539,11 +601,9 @@
   // the reason to restart is something noticed on the phone. This pulls the
   // latest code and re-execs it. The server refuses to restart if the new code
   // will not compile, so this cannot strand the phone with nothing listening.
-  function restartHtml() {
-    if (!apiOk) return "";
-    return '<div class="week-wrap"><button class="archive-link" id="restart">' +
-      "↻ Update &amp; restart the Mac server</button>" +
-      '<div class="gen-note" id="restart-note"></div></div>';
+  function restartToolHtml() {
+    return toolHtml("Mac server", wn("Pulls the latest build and restarts the Mac server.", "Update &amp; restart"),
+      '<button class="btn" id="restart">' + wn("Update &amp; restart", "Restart") + "</button>", "restart-note");
   }
 
   function wireRestart() {
@@ -553,62 +613,119 @@
     btn.onclick = () => {
       if (!confirm("Pull the latest code and restart the Mac's server?")) return;
       btn.disabled = true;
-      const label = btn.textContent;
+      const label = btn.innerHTML;
       btn.textContent = "Restarting…";
-      fetch(api("api/restart"), {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pull: true })
-      }).then(r => r.json()).then(res => {
-        if (!res.ok) {
-          note.textContent = res.error || "Couldn’t restart.";
-          btn.disabled = false; btn.textContent = label;
-          return;
-        }
-        note.textContent = "Restarting" + (res.warning ? " (" + res.warning + ")" : "") + "…";
-        // Wait for it to come back rather than claiming success immediately.
+      // Wait for it to come back rather than claiming success immediately.
+      const waitForIt = (pulled) => {
         let tries = 0;
         const wait = () => {
           tries++;
           pingUrl(apiBase).then(p => {
             if (p) {
               apiInfo = p.info;
-              note.textContent = "Back up ✓" + (res.pulled ? " — " + res.pulled.split("\n")[0] : "");
-              btn.disabled = false; btn.textContent = label;
+              note.textContent = "Back up ✓" + (pulled ? " · " + pulled.split("\n")[0] : "");
+              btn.disabled = false; btn.innerHTML = label;
             } else if (tries < 15) {
               setTimeout(wait, 1500);
             } else {
-              note.textContent = "It hasn’t come back — check the Mac.";
-              btn.disabled = false; btn.textContent = label;
+              note.textContent = "It hasn’t come back. Check the Mac.";
+              btn.disabled = false; btn.innerHTML = label;
             }
           });
         };
         setTimeout(wait, 2000);
+      };
+      fetch(api("api/restart"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pull: true })
+      }).then(r => r.json()).then(res => {
+        if (!res.ok) {
+          note.textContent = res.error || "Couldn’t restart.";
+          btn.disabled = false; btn.innerHTML = label;
+          return;
+        }
+        note.textContent = "Restarting" + (res.warning ? " (" + res.warning + ")" : "") + "…";
+        waitForIt(res.pulled);
       }).catch(e => {
         // A dropped connection mid-restart is expected; keep polling.
         note.textContent = "Restarting…";
-        let tries = 0;
-        const wait = () => {
-          tries++;
-          pingUrl(apiBase).then(p => {
-            if (p) { apiInfo = p.info; note.textContent = "Back up ✓"; btn.disabled = false; btn.textContent = label; }
-            else if (tries < 15) setTimeout(wait, 1500);
-            else { note.textContent = "It hasn’t come back — check the Mac."; btn.disabled = false; btn.textContent = label; }
-          });
-        };
-        setTimeout(wait, 2000);
+        waitForIt(null);
       });
     };
   }
 
-  // Re-read the generator's ping so the button's "n days still empty" is current.
+  // Re-read the generator's ping so the "n days still empty" line is current.
   function pingRefresh() {
     return pingUrl(apiBase).then(p => { if (p) apiInfo = p.info; }).catch(() => {});
   }
 
-  function readingsList(readings, heading) {
-    return '<div class="readings-card"><h2>' + heading + '</h2><ul>' +
-      READING_TAGS.map(([k, label]) => readings[k] ? '<li><span class="tag">' + label + "</span><span>" + refLink(readings[k]) + "</span></li>" : "").join("") +
-      "</ul></div>";
+  // ---------- shared pieces ----------
+  function readsHtml(readings) {
+    return '<div class="reads">' +
+      READING_TAGS.map(([k, full, short]) => readings[k]
+        ? '<div class="rd"><span class="l">' + wn(full, short) + "</span>" +
+          '<span class="v">' + refLink(readings[k]) + "</span></div>"
+        : "").join("") +
+      "</div>";
+  }
+  // Days written past today: "6 days banked, to Nov 12".
+  function bankedAhead() {
+    return [...generatedSet].filter(d => d > todayIso).sort();
+  }
+  function buildLine() {
+    const ahead = bankedAhead();
+    return "build " + BUILD + " · " + (ahead.length
+      ? ahead.length + (ahead.length === 1 ? " day" : " days") + " banked, to " + shortIso(ahead[ahead.length - 1])
+      : "nothing banked past today");
+  }
+  function topHtml(extra) {
+    return '<header class="top">' + obHtml() + '<span class="k top-k">Daily Manna</span>' + (extra || "") +
+      '<span class="sp"></span><span class="build">' + esc(buildLine()) + "</span></header>";
+  }
+  function footHtml() {
+    return '<div class="build foot-build">' + esc(buildLine()) + "</div>";
+  }
+
+  // ---------- browse by date ----------
+  // A short row of nearby days (5 back, today, up to 3 written ahead) and a
+  // date field for anything else, instead of a month grid.
+  function browseHtml() {
+    const ahead = bankedAhead();
+    const lastAhead = ahead.length ? ahead[Math.min(ahead.length, 3) - 1] : null;
+    let btns = "";
+    for (let i = -5; i <= 3; i++) {
+      const iso = shiftIso(todayIso, i);
+      if (i > 0 && (!lastAhead || iso > lastAhead)) break;
+      const [y, m, d] = iso.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      const has = generatedSet.has(iso);
+      const cls = "dy" + (i === 0 ? " on" : i > 0 && has ? " f" : !has ? " none" : "");
+      const label = prettyFromIso(iso, false) + (has ? ", articles ready" : ", no articles yet");
+      btns += '<button class="' + cls + '" data-iso="' + iso + '" aria-label="' + label + '"' + (i === 0 ? ' aria-current="date"' : "") + ">" +
+        "<small>" + (i === 0 ? "Today" : dt.toLocaleDateString("en-US", { weekday: "short" })) + "</small><b>" + d + "</b></button>";
+    }
+    return '<section class="card"><h2>Browse by date</h2>' +
+      '<div class="browse-row"><div class="days" id="days">' + btns + "</div>" +
+      '<div class="look"><label for="other-date">Other date</label>' +
+      '<input type="date" id="other-date" aria-label="Other date">' +
+      '<button class="btn g" id="open-date">Open</button></div></div>' +
+      (ahead.length ? '<div class="hint">Gold days are already written and waiting.</div>' : "") +
+      "</section>";
+  }
+  function wireBrowse() {
+    app.querySelectorAll(".dy[data-iso]").forEach(c => { c.onclick = () => openDate(c.dataset.iso); });
+    const input = document.getElementById("other-date");
+    const open = () => {
+      if (input.value) return openDate(input.value);
+      if (input.showPicker) { try { input.showPicker(); return; } catch (e) {} }
+      input.focus();
+    };
+    document.getElementById("open-date").onclick = open;
+    input.onkeydown = (e) => { if (e.key === "Enter") open(); };
+    // On a phone the row scrolls; start it with today in view, 3 days of history to its left.
+    const row = document.getElementById("days");
+    const on = row.querySelector(".dy.on");
+    if (on && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - row.offsetLeft - 3 * 58);
   }
 
   // ---------- home ----------
@@ -617,39 +734,62 @@
     if (!todayData) return; // renderMissing already showed
     const total = todayData.articles.reduce((s, a) => s + a.minutes, 0);
     const done = readCount(todayIso, todayData.articles);
-    const left = todayData.articles.length - done;
+    const n = todayData.articles.length;
+    const left = n - done;
     const primaryLabel = done === 0
-      ? "Read Today’s " + todayData.articles.length + " Articles"
-      : (left > 0 ? "Continue — " + left + " left to read" : "Reread Today’s Articles");
-    const primarySmall = done === 0 ? total + " minute read" : done + " of " + todayData.articles.length + " read";
+      ? "Read today’s " + n + " articles"
+      : (left > 0 ? "Continue: " + left + " left to read" : "Reread today’s articles");
+    const primarySmall = done === 0 ? total + " minute read" : done + " of " + n + " read";
     app.innerHTML =
-      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
-      '<div class="home-date">' + prettyFromIso(todayIso, true) + "</div></header>" +
-      readingsList(todayData.readings, "Today’s Readings") +
-      '<div class="choice">' +
-      '<button class="btn btn-primary" id="read-all">' + primaryLabel + "<small>" + primarySmall + "</small></button>" +
-      '<button class="btn btn-secondary" id="read-best">Just the Best One<small>' + todayData.articles[0].minutes + " minutes</small></button>" +
-      "</div>" +
-      '<button class="archive-link" id="browse">Browse by date ›</button>' +
-      (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate today</button>' : "") +
-      weekBtnHtml() +
-      restartHtml() +
-      '<p class="home-note">Fresh articles from today’s passages, every morning.</p>' +
-      '<div class="build-stamp">build ' + BUILD + '</div>';
-    document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, { bestOnly: false, onBack: renderHome });
-    document.getElementById("read-best").onclick = () => openDay(todayIso, todayData, { bestOnly: true, onBack: renderHome });
-    document.getElementById("browse").onclick = renderCalendar;
+      '<div id="home-view">' + topHtml() +
+      '<div class="col">' +
+      '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(todayIso, false) + "</h1>" +
+      '<div class="sub">Fresh articles from today’s passages, every morning.</div></div>' +
+      readsHtml(todayData.readings) +
+      '<button class="big p" id="read-all"><b>' + primaryLabel + "</b><span>" + primarySmall + "</span></button>" +
+      browseHtml() +
+      toolsHtml("Regenerate today") +
+      footHtml() +
+      "</div></div>";
+    document.getElementById("read-all").onclick = () => openDay(todayIso, todayData, renderHome);
+    wireBrowse();
     wireWeekBtn(renderHome);
     wireRestart();
     const regen = document.getElementById("regen");
     if (regen) regen.onclick = () => {
       if (!confirm("Rewrite today’s 4 articles? This replaces the current set.")) return;
-      const note = document.createElement("div"); note.className = "gen-note"; regen.after(note);
-      generateToday(regen, note, true);
+      generateToday(regen, document.getElementById("regen-note"), true);
     };
   }
 
-  // ---------- calendar dashboard ----------
+  function renderMissing(planReadings) {
+    window.scrollTo(0, 0);
+    app.innerHTML =
+      '<div id="home-view">' + topHtml() +
+      '<div class="col">' +
+      '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(todayIso, false) + "</h1>" +
+      '<div class="sub">Fresh articles from today’s passages, every morning.</div></div>' +
+      (planReadings ? readsHtml(planReadings) : "") +
+      '<section class="card missing-card"><h2>Today’s articles aren’t ready yet</h2>' +
+      (apiOk
+        ? "<p>Tap below and Daily Manna will write today’s four articles for you.</p>" +
+          '<div><button class="big p" id="gen"><b>Generate today’s devotions</b><span>Runs on your Mac, a few minutes</span></button>' +
+          '<div class="gen-note" id="gen-note"></div></div>'
+        : "<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>" +
+          "<p>In the meantime, today’s passages are listed above. The Word itself is always ready.</p>") +
+      "</section>" +
+      browseHtml() +
+      toolsHtml(null) +
+      footHtml() +
+      "</div></div>";
+    wireBrowse();
+    wireWeekBtn(goToday);
+    wireRestart();
+    const gen = document.getElementById("gen");
+    if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
+  }
+
+  // ---------- dates ----------
   function isoFor(y, m, d) {
     return y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
   }
@@ -661,40 +801,6 @@
   function shortIso(iso) {
     const [y, m, d] = iso.split("-").map(Number);
     return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-  function renderCalendar() {
-    window.scrollTo(0, 0);
-    if (!calState) { const t = new Date(); calState = { y: t.getFullYear(), m: t.getMonth() }; }
-    const { y, m } = calState;
-    const title = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    const first = new Date(y, m, 1).getDay();
-    const days = new Date(y, m + 1, 0).getDate();
-    const wd = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-    let cells = "";
-    for (let i = 0; i < first; i++) cells += '<div class="cal-cell blank"></div>';
-    for (let d = 1; d <= days; d++) {
-      const iso = isoFor(y, m, d);
-      const cls = "cal-cell" + (generatedSet.has(iso) ? " has" : "") +
-        (iso === todayIso ? " today" : "") + (iso > todayIso ? " future" : "");
-      cells += '<button class="' + cls + '" data-iso="' + iso + '">' + d + "</button>";
-    }
-    app.innerHTML =
-      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div></header>' +
-      '<div class="cal">' +
-        '<div class="cal-head"><button class="cal-nav" id="prev" aria-label="previous month">‹</button>' +
-        '<div class="cal-title">' + title + "</div>" +
-        '<button class="cal-nav" id="next" aria-label="next month">›</button></div>' +
-        '<div class="cal-jump"><label>Jump to a date <input type="date" id="jump" value="' + todayIso + '"></label></div>' +
-        '<div class="cal-grid">' + wd.map(w => '<div class="cal-wd">' + w + "</div>").join("") + cells + "</div>" +
-        '<div class="cal-legend"><span><span class="lg has"></span> Has articles</span>' +
-        '<span><span class="lg none"></span> None yet</span></div>' +
-      "</div>" +
-      '<button class="archive-link" id="home">‹ Back to Today</button>';
-    document.getElementById("home").onclick = goToday;
-    document.getElementById("prev").onclick = () => { calState = { y: m === 0 ? y - 1 : y, m: m === 0 ? 11 : m - 1 }; renderCalendar(); };
-    document.getElementById("next").onclick = () => { calState = { y: m === 11 ? y + 1 : y, m: m === 11 ? 0 : m + 1 }; renderCalendar(); };
-    document.getElementById("jump").onchange = (e) => { if (e.target.value) openDate(e.target.value); };
-    app.querySelectorAll(".cal-cell[data-iso]").forEach(c => { c.onclick = () => openDate(c.dataset.iso); });
   }
 
   function openDate(iso) {
@@ -709,70 +815,67 @@
     const has = generatedSet.has(iso);
     const back = () => renderDayCard(iso);
     app.innerHTML =
-      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Calendar</button>' +
-      '<span class="where">' + prettyFromIso(iso, false) + "</span></div></div>" +
-      '<main class="reading" style="padding-top:3.6rem">' +
-      '<div class="home-date" style="text-align:center">' + prettyFromIso(iso, true) + "</div>" +
-      '<div class="day-nav"><button id="prevday">‹ ' + shortIso(shiftIso(iso, -1)) + "</button>" +
-      '<button id="nextday">' + shortIso(shiftIso(iso, 1)) + " ›</button></div>" +
-      (readings ? readingsList(readings, "Readings for this day")
-        : '<div class="missing"><p>No reading plan entry for this date.</p></div>') +
+      topHtml('<button class="btn" id="back">‹ Today</button>') +
+      '<div class="col">' +
+      '<div class="hero"><div class="k">Daily Manna</div><h1>' + prettyFromIso(iso, true) + "</h1>" +
+      '<div class="day-nav"><button class="btn" id="prevday">‹ ' + shortIso(shiftIso(iso, -1)) + "</button>" +
+      '<button class="btn" id="nextday">' + shortIso(shiftIso(iso, 1)) + " ›</button></div></div>" +
+      (readings ? readsHtml(readings)
+        : '<section class="card"><p>No reading plan entry for this date.</p></section>') +
       (readings && has
-        ? '<div class="choice"><button class="btn btn-primary" id="read-all">Read the 4 Articles</button>' +
-          '<button class="btn btn-secondary" id="read-best">Just the Best One</button></div>' +
-          (apiOk ? '<button class="archive-link regen" id="regen">↻ Regenerate this day</button>' : "")
+        ? '<div class="cta"><button class="big p" id="read-all"><b>Read this day’s articles</b><span>Articles ready</span></button></div>' +
+          toolsHtml("Regenerate this day")
         : readings
           ? (apiOk
-              ? '<div class="gen-wrap"><p class="home-note" style="margin-top:0">No articles for this day yet.</p>' +
-                '<button class="btn btn-primary" id="gen">✍️ Generate this day’s devotions</button>' +
-                '<div class="gen-note" id="gen-note"></div></div>'
-              : '<div class="missing"><p>No articles yet. Open this day on your Mac to generate them.</p></div>')
+              ? '<section class="card missing-card"><h2>No articles for this day yet</h2>' +
+                '<div><button class="big p" id="gen"><b>Generate this day’s devotions</b><span>Runs on your Mac, a few minutes</span></button>' +
+                '<div class="gen-note" id="gen-note"></div></div></section>'
+              : '<section class="card"><p>No articles yet. Open this day on your Mac to generate them.</p></section>')
           : "") +
-      "</main>";
-    document.getElementById("back").onclick = renderCalendar;
+      footHtml() +
+      "</div>";
+    document.getElementById("back").onclick = goToday;
     document.getElementById("prevday").onclick = () => openDate(shiftIso(iso, -1));
     document.getElementById("nextday").onclick = () => openDate(shiftIso(iso, 1));
+    wireWeekBtn(back);
+    wireRestart();
     if (readings && has) {
       // These used to be bare .then() chains. When loadDay rejected — a flaky
       // connection, or a day this device has never cached — the rejection went
       // nowhere: no article, no error, the button just sat there looking dead.
       // Failure now says so on screen and can be tapped again.
-      const openWith = (btn, bestOnly) => () => {
-        const label = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = "Opening…";
+      const readAllBtn = document.getElementById("read-all");
+      readAllBtn.onclick = () => {
+        const label = readAllBtn.querySelector("b").textContent;
+        readAllBtn.disabled = true;
+        setBtnLabel(readAllBtn, "Opening…");
         loadDay(iso)
-          .then(d => openDay(iso, d, { bestOnly: bestOnly, onBack: back }))
+          .then(d => openDay(iso, d, back))
           .catch(err => {
-            btn.disabled = false;
-            btn.textContent = label;
+            readAllBtn.disabled = false;
+            setBtnLabel(readAllBtn, label);
             let note = document.getElementById("open-err");
             if (!note) {
               note = document.createElement("div");
               note.className = "gen-note";
               note.id = "open-err";
-              btn.parentNode.appendChild(note);
+              readAllBtn.parentNode.appendChild(note);
             }
             note.textContent = navigator.onLine
-              ? "Couldn’t load this day — " + (err.name || "Error") + ": " + err.message
+              ? "Couldn’t load this day. " + (err.name || "Error") + ": " + err.message
                 + " · build " + BUILD + " · tap to retry"
               : "You’re offline, and this day isn’t saved on this device yet. Tap again once you have a connection.";
           });
       };
-      const readAllBtn = document.getElementById("read-all");
-      const readBestBtn = document.getElementById("read-best");
-      readAllBtn.onclick = openWith(readAllBtn, false);
-      readBestBtn.onclick = openWith(readBestBtn, true);
       const rg = document.getElementById("regen");
       if (rg) rg.onclick = () => {
         if (!confirm("Rewrite this day’s 4 articles? This replaces the current set.")) return;
-        const n = document.createElement("div"); n.className = "gen-note"; rg.after(n);
-        runGenerate(iso, rg, n, true, (d) => openDay(iso, d, { bestOnly: false, onBack: back }));
+        runGenerate(iso, rg, document.getElementById("regen-note"), true, (d) => openDay(iso, d, back));
       };
     } else if (readings && apiOk) {
       const gen = document.getElementById("gen");
       if (gen) gen.onclick = () => runGenerate(iso, gen, document.getElementById("gen-note"), false,
-        (d) => openDay(iso, d, { bestOnly: false, onBack: back }));
+        (d) => openDay(iso, d, back));
     }
   }
 
@@ -856,11 +959,12 @@
       '<p class="dek">' + esc(a.dek) + "</p>" +
       '<div class="body">' + a.body + "</div>" +
       '<div class="end-mark">❦</div>' +
-      '<button class="love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
+      '<div class="art-actions">' +
+      '<button class="btn love-btn' + (loved ? " loved" : "") + '" data-key="' + key + '">' +
       '<span class="ic">' + (loved ? "♥" : "♡") + '</span> ' + (loved ? "Loved" : "Love this") + "</button>" +
-      '<button class="export-btn">⬇ Save as PDF</button>' +
-      '<button class="collapse-btn">Collapse ▲</button>' +
-      "</div></section>";
+      '<button class="btn export-btn">⬇ Save as PDF</button>' +
+      '<button class="btn collapse-btn">Collapse ▲</button>' +
+      "</div></div></section>";
   }
 
   // ---------- listen ----------
@@ -920,7 +1024,7 @@
       audio.addEventListener("error", () => {
         // Nearly always a stale app asking for a path that has since moved.
         // selfUpdate() should have caught it; say so plainly if it did not.
-        label.textContent = "Audio didn’t load — tap to refresh the app";
+        label.textContent = "Audio didn’t load. Tap to refresh the app";
         playBtn.disabled = false;
         playBtn.textContent = "↻";
         playBtn.onclick = () => {
@@ -979,30 +1083,25 @@
     });
   }
 
-  function openDay(isoStr, data, opts) {
+  function openDay(isoStr, data, onBack) {
     const arts = data.articles.slice().sort((x, y) => x.rank - y.rank);
-    const shown = opts.bestOnly ? [arts[0]] : arts;
-    const unreadCount = shown.filter(a => !isRead(isoStr, a.rank)).length;
+    const unreadCount = arts.filter(a => !isRead(isoStr, a.rank)).length;
     app.innerHTML =
-      '<div class="topbar"><div class="topbar-inner"><button id="back">‹ Back</button>' +
+      '<div class="topbar"><div class="topbar-inner">' + obHtml() +
+      '<button class="btn" id="back">‹ Back</button>' +
       '<span class="where">' + prettyFromIso(isoStr, false) + "</span></div>" +
       '<div class="progress"><div id="pbar"></div></div></div>' +
-      '<main class="reading">' +
-      (!opts.bestOnly && unreadCount === 0 && shown.length > 1
+      '<main class="reading wrap">' +
+      (unreadCount === 0 && arts.length > 1
         ? '<div class="allread"><strong>You’ve read all of these.</strong> Tap any title to read it again.</div>' : "") +
-      shown.map((a, i) => articleHtml(a, i, shown.length, isoStr, isRead(isoStr, a.rank))).join("") +
-      (opts.bestOnly && arts.length > 1
-        ? '<div class="more-wrap"><button class="btn btn-secondary" id="more">Keep reading the other ' + (arts.length - 1) + " articles</button></div>"
-        : "") +
-      '<div class="finish"><p class="verse">“Your word is a lamp for my feet, a light on my path.” — Psalm 119:105</p>' +
-      '<button class="btn btn-secondary" id="done">Done</button></div>' +
+      arts.map((a, i) => articleHtml(a, i, arts.length, isoStr, isRead(isoStr, a.rank))).join("") +
+      '<div class="finish"><p class="verse">“Your word is a lamp for my feet, a light on my path.” Psalm 119:105</p>' +
+      '<button class="big s" id="done"><b>Done</b></button></div>' +
       "</main>";
     window.scrollTo(0, 0);
 
-    document.getElementById("back").onclick = opts.onBack;
-    document.getElementById("done").onclick = opts.onBack;
-    const more = document.getElementById("more");
-    if (more) more.onclick = () => openDay(isoStr, data, { bestOnly: false, onBack: opts.onBack });
+    document.getElementById("back").onclick = onBack;
+    document.getElementById("done").onclick = onBack;
 
     // expand / collapse + love toggles
     app.querySelectorAll(".art").forEach(sec => {
@@ -1040,29 +1139,6 @@
     };
     window.addEventListener("scroll", update, { passive: true });
     update();
-  }
-
-  function renderMissing(planReadings) {
-    app.innerHTML =
-      '<header class="masthead"><div class="brand">Daily Manna</div><div class="brand-rule"></div>' +
-      '<div class="home-date">' + prettyFromIso(todayIso, true) + "</div></header>" +
-      (planReadings ? readingsList(planReadings, "Today’s Readings") : "") +
-      '<div class="missing"><h2>Today’s articles aren’t ready yet</h2>' +
-      (apiOk
-        ? '<p>Tap below and Daily Manna will write today’s four articles for you.</p>'
-          + '<div class="gen-wrap"><button class="btn btn-primary" id="gen">✍️ Generate today’s devotions</button>'
-          + '<div class="gen-note" id="gen-note"></div></div>'
-        : '<p>Open the app on your Mac (or say <em>“today’s devotions”</em> in Claude Code) to generate them.</p>'
-          + "<p>In the meantime, today’s passages are listed above — the Word itself is always ready.</p>") +
-      '<button class="archive-link" id="browse">Browse by date ›</button>' +
-      weekBtnHtml() +
-      restartHtml() +
-      '<div class="build-stamp">build ' + BUILD + '</div></div>';
-    document.getElementById("browse").onclick = renderCalendar;
-    wireWeekBtn(goToday);
-    wireRestart();
-    const gen = document.getElementById("gen");
-    if (gen) gen.onclick = () => generateToday(gen, document.getElementById("gen-note"));
   }
 
   // ---------- boot ----------
@@ -1128,10 +1204,11 @@
       const canGen = !!(p.info && p.info.canGenerate);
       if (canGen === apiOk) return;         // nothing on screen depends on this
       apiOk = canGen;
-      // Only redraw if he is still on the home screen. #browse exists on both
-      // home views and nowhere else, so its absence means he already tapped into
-      // an article or the calendar — and a late redraw would throw him out of it.
-      if (document.getElementById("browse")) goToday();
+      // Only redraw if he is still on the home screen. #home-view exists on
+      // both home views and nowhere else, so its absence means he already
+      // tapped into an article or another date, and a late redraw would throw
+      // him out of it.
+      if (document.getElementById("home-view")) goToday();
     }));
 })();
 </script>
