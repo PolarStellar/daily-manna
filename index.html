@@ -385,11 +385,21 @@
     return location.protocol + "//" + location.hostname + ":8788/";
   }
   function obHtml() {
-    return '<a class="obback" href="' + boardUrl() + '" aria-label="Back to Ops Board" title="Back to Ops Board">' +
+    return '<a class="obback" data-ob href="' + boardUrl() + '" aria-label="Back to Ops Board" title="Back to Ops Board">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>' +
       '<span class="obl" aria-hidden="true">OB</span></a>';
   }
+  // OB button on the Mac: switch to the already-open Daily Ops Board app instead of loading the
+  // board in this window (REDESIGN_BRIEF rule 2). Phone and github.io follow the plain link.
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("a[data-ob]")) return;
+    var h = location.hostname;
+    if (h !== "localhost" && h !== "127.0.0.1") return;
+    e.preventDefault();
+    fetch("http://127.0.0.1:8788/focus", { mode: "no-cors", cache: "no-store" })
+      .catch(function () { location.href = "http://localhost:8788/"; });
+  });
 
   // ---------- read-state (per device, localStorage) ----------
   function getRead() {
