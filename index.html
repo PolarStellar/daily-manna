@@ -381,7 +381,7 @@
   // that would point nowhere, so it goes to the board's tailnet address
   // by its tailnet name (needs Tailscale on, same as every other phone app).
   function boardUrl() {
-    if (/(^|\.)github\.io$/.test(location.hostname)) return "http://" + new URL(TAILNET).hostname + ":8788/";
+    if (/(^|\.)github\.io$/.test(location.hostname)) return "https://" + new URL(TAILNET).hostname + ":8788/";   // the board is served over https by tailscale serve
     return location.protocol + "//" + location.hostname + ":8788/";
   }
   function obHtml() {
